@@ -1495,8 +1495,14 @@ function updateTurnstile() {
         playBeepSound();
       }
     }
-  } else if (dist >= TURNSTILE_DETECT_DIST && turnstile.state === 'open') {
-    turnstile.state = 'closing';
+  } else {
+    // 玩家远离闸机，关闭气泡
+    if (turnstileBubble.visible) {
+      turnstileBubble.visible = false;
+    }
+    if (dist >= TURNSTILE_DETECT_DIST && turnstile.state === 'open') {
+      turnstile.state = 'closing';
+    }
   }
 
   if (turnstile.state === 'opening' || turnstile.state === 'closing') {
