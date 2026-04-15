@@ -1510,11 +1510,16 @@ function updateTurnstile() {
         turnstile.state = 'opening';
       }
     } else {
-      // 条件不满足，显示提示并发出哔哔声
-      if (turnstile.state === 'closed') {
+      // 条件不满足，强制关闭闸机并显示提示
+      if (turnstile.state !== 'closed') {
+        turnstile.state = 'closed';
+        turnstile.frame = 0;
+        turnstile.frameTimer = 0;
+      }
+      // 显示提示并发出哔哔声（限制频率，避免连续触发）
+      if (Date.now() - _turnstileMessageTimer > 1000) {
         _turnstileMessage = t('turnstileLocked');
         _turnstileMessageTimer = Date.now();
-        // 播放哔哔声（简单的音频反馈）
         playBeepSound();
       }
     }
