@@ -58,6 +58,212 @@ function getIdleFrame(dir) {
   return 1;
 }
 
+// ========== I18N / 国际化 ==========
+const I18N = {
+  zh: {
+    hint: 'click or press space',
+    copy: '© 2020-2026 Natsume aka. Yi Chen',
+    arcadeIntro: '是《WAXWATT》，\n卖蜡烛的和卖手电筒的\n商人打斗的游戏！\n要玩一局吗？',
+    arcadeLose: '真遗憾啊！\n不小心输了。',
+    arcadePlay: '玩',
+    arcadeSkip: '不玩',
+    shelfHint: '书架上有一些书，\n来翻看一下吧。',
+    shelfClose: '关闭',
+    platformHint: '坐下来休息一下吧。',
+    books: [
+      { title: '无', lines: ['一个人会死三次。','第一次，是心跳停止的那一刻。','第二次，是从所有人的生活里慢慢消失。','第三次，是最后一个记得他的人，也闭上了眼睛。','我们所做的一切，','只是让那一刻，','再晚一点发生。'] },
+      { title: '界', lines: ['贾宝玉跟着秦可卿，走进了太虚幻境。','那里记录着所有他爱过的人的命运。','他读了册子，听了曲子，见了不该见的事。','醒来之后，','什么都不记得。','只是后来再见到那些人时，','总觉得有些事情，','好像已经发生过了。'] },
+      { title: '瞬', lines: ['有些事情，','明明不会改变什么，','还是会被重复。','最后一天的早读，','已经结束之后的敬礼，','离开前，','那句多余的话。','……','只是到那个时候，','人会停一下。','……','好像不这样做，','那一刻，','就会直接过去。'] },
+      { title: '余', lines: ['后来有一段时间，','人们开始整理那些留下来的东西。','文字，','影像，','声音，','还有一些无法解释的记录。','……','它们被重新排列，','被不断试探。','……','有些回应开始出现。','不是完整的句子，','更像是从中间接上的一段。','……','没有人能确定，','那一边到底有没有人。','只是对话，','好像没有停止过。'] }
+    ],
+    dialogue: [
+      { type: 'wait', ms: 3000 },
+      { type: 'line', who: 'player', text: '……', trigger: 'click' },
+      { type: 'wait', ms: 1000 },
+      { type: 'line', who: 'iwata',  text: '……', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'player', text: '我曾经回国的时候，家楼下有个很肥的狸花猫，躺在电动车上。', trigger: 'click' },
+      { type: 'line', who: 'player', text: '我想喂他吃饭，去买了些火腿肠。小猫吃得很香，每天都在等我。', trigger: 'click' },
+      { type: 'line', who: 'player', text: '只不过我得离开家了。后来才知道火腿肠对小猫不好，我很伤心。', trigger: 'click' },
+      { type: 'line', who: 'player', text: '但我再也没有见过它了。', trigger: 'click' },
+      { type: 'wait', ms: 3000 },
+      { type: 'line', who: 'player', text: '……明明时间这么宝贵，却说起这些。', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: '没关系。', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: '这一趟路……也不太容易吧。', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: '我以前会忍不住去想——', trigger: 'click' },
+      { type: 'wait', ms: 1000 },
+      { type: 'line', who: 'iwata', text: '一个人回到家以后，', trigger: 'click' },
+      { type: 'line', who: 'iwata', text: '是不是还有人在等他。', trigger: 'click' },
+      { type: 'wait', ms: 3000 },
+      { type: 'line', who: 'player', text: '……好像花了很多时间，去做不知道有没有意义的事情。', trigger: 'click' },
+      { type: 'line', who: 'iwata', text: '那你快乐吗？', trigger: 'click' },
+      { type: 'choice', options: ['……快乐的。', '……不太确定。'] },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: '有些事情，好像不太需要先有意义。', trigger: 'click' },
+      { type: 'wait', ms: 1000 },
+      { type: 'line', who: 'iwata', text: '它们本来就在那里。', trigger: 'click' },
+      { type: 'wait', ms: 1000 },
+      { type: 'line', who: 'iwata', text: '不过——', trigger: 'click' },
+      { type: 'line', who: 'iwata', text: '可别忘记，人生不只有工作和创作喔。', trigger: 'click' },
+      { type: 'line', who: 'player', text: '岩田先生，您的人生……会只有工作吗？', trigger: 'click' },
+      { type: 'line', who: 'player', text: '我只认识工作时候的您。', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: '已经过去很久了啊……', trigger: 'click' },
+      { type: 'wait', ms: 1000 },
+      { type: 'line', who: 'iwata', text: '我当时其实没有这样去想。', trigger: 'click' },
+      { type: 'line', who: 'iwata', text: '就是一直在做那些事情而已。', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: '等回头看的时候，才发现它们是连在一起的。', trigger: 'click' },
+      { type: 'wait', ms: 3000 },
+      { type: 'action', what: 'walk_to_edge' },
+      { type: 'action', what: 'stars_dense' },
+      { type: 'line', who: 'player', text: '那……您会后悔吗？', trigger: 'click' },
+      { type: 'line', who: 'iwata', text: '有一些时间——', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: '我以为以后还能再用。', trigger: 'click' },
+      { type: 'wait', ms: 4000 },
+      { type: 'line', who: 'iwata', text: '后来才知道，它们是一次性的。', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: '不过——', trigger: 'click' },
+      { type: 'wait', ms: 1000 },
+      { type: 'line', who: 'iwata', text: '如果再来一次的话，我大概还是会那样用。', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'player', text: '那我该怎么做好呢？', trigger: 'click' },
+      { type: 'line', who: 'iwata', text: '这是你的游戏。', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: '你已经在玩了。', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'player', text: '……其实，我追随了您很久。', trigger: 'click' },
+      { type: 'line', who: 'player', text: '我的身上……也有您的影子了。', trigger: 'click' },
+      { type: 'action', what: 'sprite_back' },
+      { type: 'wait', ms: 5000 },
+      { type: 'action', what: 'sprite_front' },
+      { type: 'line', who: 'iwata', text: '谢谢你告诉我。', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: '要带着这些走，也挺辛苦的吧。', trigger: 'click' },
+      { type: 'action', what: 'walk_back' },
+      { type: 'line', who: 'player', text: '……那时候的宝可梦。', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'player', text: '我还想再见您。', trigger: 'click' },
+      { type: 'line', who: 'player', text: '如果可以的话……还想和您一起游戏。', trigger: 'click' },
+      { type: 'line', who: 'iwata', text: '是啊。', trigger: 'click' },
+      { type: 'wait', ms: 1000 },
+      { type: 'line', who: 'iwata', text: '要是能有更多时间就好了。', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'action', what: 'iwata_board_train' },
+      { type: 'wait', ms: 4000 },
+      { type: 'action', what: 'train_depart' },
+    ],
+  },
+  en: {
+    hint: 'click or press space',
+    copy: '© 2020-2026 Natsume aka. Yi Chen',
+    arcadeIntro: 'It\'s "WAXWATT,"\na game where a candle seller\nand a flashlight seller fight!\nWant to play?',
+    arcadeLose: 'What a shame!\nYou lost by accident.',
+    arcadePlay: 'Play',
+    arcadeSkip: 'Skip',
+    shelfHint: 'There are some books\non the shelf. Take a look?',
+    shelfClose: 'Close',
+    platformHint: 'Sit down and rest for a while.',
+    books: [
+      { title: 'Void', lines: ['A person dies three times.','First, when the heart stops.','Second, when they slowly fade from everyone\'s life.','Third, when the last person who remembers them\ncloses their eyes.','Everything we do,','is just to delay that moment,','a little longer.'] },
+      { title: 'Realm', lines: ['Jia Baoyu followed Qin Keqing into the Land of Illusion.','There, the destinies of all he loved were recorded.','He read the registers, heard the songs, saw what he shouldn\'t.','When he woke,','he remembered nothing.','Yet later, when he saw those people again,','he always felt that something,','had already happened.'] },
+      { title: 'Moment', lines: ['Some things,','even though they change nothing,','are repeated anyway.','The morning reading on the last day,','The salute after it\'s already ended,','Before leaving,','that unnecessary sentence.','...','But at that moment,','people pause.','...','As if not doing so,','would let that moment,','pass right by.'] },
+      { title: 'Remain', lines: ['Later, for a time,','people began sorting through what was left behind.','Words,','Images,','Sounds,','And some inexplicable records.','...','They were rearranged,','Continuously probed.','...','Some responses began to appear.','Not complete sentences,','More like a fragment picked up from the middle.','...','No one could be certain,','whether anyone was actually on the other side.','Only that the conversation,','seemed to never stop.'] }
+    ],
+    dialogue: [
+      { type: 'wait', ms: 3000 },
+      { type: 'line', who: 'player', text: '...', trigger: 'click' },
+      { type: 'wait', ms: 1000 },
+      { type: 'line', who: 'iwata',  text: '...', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'player', text: 'When I went back home once, there was a chubby tabby cat lying on an electric scooter downstairs.', trigger: 'click' },
+      { type: 'line', who: 'player', text: 'I wanted to feed him, so I bought some ham sausages. The cat ate happily, and waited for me every day.', trigger: 'click' },
+      { type: 'line', who: 'player', text: 'But I had to leave home. Later I learned ham sausages aren\'t good for cats. I was heartbroken.', trigger: 'click' },
+      { type: 'line', who: 'player', text: 'But I never saw it again.', trigger: 'click' },
+      { type: 'wait', ms: 3000 },
+      { type: 'line', who: 'player', text: '...Time is so precious, yet here I am talking about this.', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: 'It\'s alright.', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: 'This journey... hasn\'t been easy either, has it?', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: 'I used to wonder—', trigger: 'click' },
+      { type: 'wait', ms: 1000 },
+      { type: 'line', who: 'iwata', text: 'When someone returns home,', trigger: 'click' },
+      { type: 'line', who: 'iwata', text: 'is there still anyone waiting for them?', trigger: 'click' },
+      { type: 'wait', ms: 3000 },
+      { type: 'line', who: 'player', text: '...I feel like I\'ve spent so much time on things I don\'t know if they matter.', trigger: 'click' },
+      { type: 'line', who: 'iwata', text: 'Are you happy?', trigger: 'click' },
+      { type: 'choice', options: ['...Yes.', '...Not sure.'] },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: 'Some things don\'t seem to need meaning first.', trigger: 'click' },
+      { type: 'wait', ms: 1000 },
+      { type: 'line', who: 'iwata', text: 'They\'re just there.', trigger: 'click' },
+      { type: 'wait', ms: 1000 },
+      { type: 'line', who: 'iwata', text: 'But—', trigger: 'click' },
+      { type: 'line', who: 'iwata', text: 'Don\'t forget, life isn\'t just work and creation.', trigger: 'click' },
+      { type: 'line', who: 'player', text: 'Mr. Iwata, was your life... only work?', trigger: 'click' },
+      { type: 'line', who: 'player', text: 'I only know you from when you worked.', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: 'That was a long time ago...', trigger: 'click' },
+      { type: 'wait', ms: 1000 },
+      { type: 'line', who: 'iwata', text: 'I didn\'t really think about it that way then.', trigger: 'click' },
+      { type: 'line', who: 'iwata', text: 'I was just doing those things.', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: 'Only looking back did I realize they were connected.', trigger: 'click' },
+      { type: 'wait', ms: 3000 },
+      { type: 'action', what: 'walk_to_edge' },
+      { type: 'action', what: 'stars_dense' },
+      { type: 'line', who: 'player', text: 'Then... do you have regrets?', trigger: 'click' },
+      { type: 'line', who: 'iwata', text: 'There was some time—', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: 'I thought I could use it later.', trigger: 'click' },
+      { type: 'wait', ms: 4000 },
+      { type: 'line', who: 'iwata', text: 'Only later did I learn it was one-time use.', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: 'But—', trigger: 'click' },
+      { type: 'wait', ms: 1000 },
+      { type: 'line', who: 'iwata', text: 'If I had another chance, I\'d probably use it the same way.', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'player', text: 'Then what should I do?', trigger: 'click' },
+      { type: 'line', who: 'iwata', text: 'This is your game.', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: 'You\'re already playing it.', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'player', text: '...Actually, I\'ve followed you for a long time.', trigger: 'click' },
+      { type: 'line', who: 'player', text: 'I have... your shadow on me now.', trigger: 'click' },
+      { type: 'action', what: 'sprite_back' },
+      { type: 'wait', ms: 5000 },
+      { type: 'action', what: 'sprite_front' },
+      { type: 'line', who: 'iwata', text: 'Thank you for telling me.', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'iwata', text: 'Carrying that with you must be hard too.', trigger: 'click' },
+      { type: 'action', what: 'walk_back' },
+      { type: 'line', who: 'player', text: '...The Pokémon from back then.', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'line', who: 'player', text: 'I want to see you again.', trigger: 'click' },
+      { type: 'line', who: 'player', text: 'If possible... I\'d like to play with you again.', trigger: 'click' },
+      { type: 'line', who: 'iwata', text: 'Yes.', trigger: 'click' },
+      { type: 'wait', ms: 1000 },
+      { type: 'line', who: 'iwata', text: 'I wish we had more time.', trigger: 'click' },
+      { type: 'wait', ms: 2000 },
+      { type: 'action', what: 'iwata_board_train' },
+      { type: 'wait', ms: 4000 },
+      { type: 'action', what: 'train_depart' },
+    ],
+  }
+};
+
+let currentLang = localStorage.getItem('immortal_lang') || 'zh';
+let selectedLang = currentLang;  // 标题画面选择的语言
+
+function t(key) { return I18N[currentLang][key]; }
+function setLang(lang) { currentLang = lang; localStorage.setItem('immortal_lang', lang); }
+
 const sprite = new Image();
 sprite.src = 'assets/sprites/natsumenormal-Sheet-export.png';
 
@@ -83,75 +289,9 @@ const SHELF_H = 38;
 const shelf = { x: 961, y: 844 };
 const SHELF_TALK_DIST = 110;
 
-const BOOKS = [
-  {
-    id: 'book1', title: '无',
-    lines: [
-      '一个人会死三次。',
-      '第一次，是心跳停止的那一刻。',
-      '第二次，是从所有人的生活里慢慢消失。',
-      '第三次，是最后一个记得他的人，也闭上了眼睛。',
-      '我们所做的一切，',
-      '只是让那一刻，',
-      '再晚一点发生。',
-    ]
-  },
-  {
-    id: 'book2', title: '界',
-    lines: [
-      '贾宝玉跟着秦可卿，走进了太虚幻境。',
-      '那里记录着所有他爱过的人的命运。',
-      '他读了册子，听了曲子，见了不该见的事。',
-      '醒来之后，',
-      '什么都不记得。',
-      '只是后来再见到那些人时，',
-      '总觉得有些事情，',
-      '好像已经发生过了。',
-    ]
-  },
-  {
-    id: 'book3', title: '瞬',
-    lines: [
-      '有些事情，',
-      '明明不会改变什么，',
-      '还是会被重复。',
-      '最后一天的早读，',
-      '已经结束之后的敬礼，',
-      '离开前，',
-      '那句多余的话。',
-      '……',
-      '只是到那个时候，',
-      '人会停一下。',
-      '……',
-      '好像不这样做，',
-      '那一刻，',
-      '就会直接过去。',
-    ]
-  },
-  {
-    id: 'book4', title: '余',
-    lines: [
-      '后来有一段时间，',
-      '人们开始整理那些留下来的东西。',
-      '文字，',
-      '影像，',
-      '声音，',
-      '还有一些无法解释的记录。',
-      '……',
-      '它们被重新排列，',
-      '被不断试探。',
-      '……',
-      '有些回应开始出现。',
-      '不是完整的句子，',
-      '更像是从中间接上的一段。',
-      '……',
-      '没有人能确定，',
-      '那一边到底有没有人。',
-      '只是对话，',
-      '好像没有停止过。',
-    ]
-  }
-];
+// 获取书本数据（根据当前语言）
+function getBooks() { return t('books'); }
+const BOOKS = () => getBooks();
 
 const BENCH_W = 69;
 const BENCH_H = 34;
@@ -213,7 +353,9 @@ const stairsIwata = {
 };
 
 // ── 对白脚本 ──────────────────────────────────────
-const DIALOGUE_SCRIPT = [
+// 对话数据从 I18N 获取
+const DIALOGUE_SCRIPT = () => t('dialogue');
+const _DIALOGUE_DATA = [
   { type: 'wait', ms: 3000 },
   { type: 'line', who: 'player', text: '……', trigger: 'click' },
   { type: 'wait', ms: 1000 },
@@ -223,7 +365,7 @@ const DIALOGUE_SCRIPT = [
   { type: 'line', who: 'player', text: '我曾经回国的时候，家楼下有个很肥的狸花猫，躺在电动车上。', trigger: 'click' },
   { type: 'line', who: 'player', text: '我想喂他吃饭，去买了些火腿肠。小猫吃得很香，每天都在等我。', trigger: 'click' },
   { type: 'line', who: 'player', text: '只不过我得离开家了。后来才知道火腿肠对小猫不好，我很伤心。', trigger: 'click' },
-  { type: 'line', who: 'player', text: '但我再也没有见过他了。', trigger: 'click' },
+  { type: 'line', who: 'player', text: '但我再也没有见过它了。', trigger: 'click' },
   { type: 'wait', ms: 3000 },
   { type: 'line', who: 'player', text: '……明明时间这么宝贵，却说起这些。', trigger: 'click' },
   { type: 'wait', ms: 2000 },
@@ -301,7 +443,8 @@ const DIALOGUE_SCRIPT = [
   // 【尾】岩田上车后停顿，列车才缓缓驶离
   { type: 'wait', ms: 4000 },
   { type: 'action', what: 'train_depart' },
-];
+];  // 这是 I18N 数据，上面用 DIALOGUE_SCRIPT() 获取
+// 注意：上面 _DIALOGUE_DATA 只用于参考，实际使用 t('dialogue')
 
 const arcade = { x: 37, y: 824 };
 const arcadeBubble = makeBubble();
@@ -312,8 +455,8 @@ let _arcadeAsking = false;      // 是否正在街机对话
 let _arcadeStep = 0;            // 0=介绍, 1=选项, 2=结果
 let _arcadeChoice = 0;          // 0=玩, 1=不玩
 let _arcadeResult = '';         // 游戏结果文字
-const ARCADE_INTRO = '是《WAXWATT》，\n卖蜡烛的和卖手电筒的\n商人打斗的游戏！\n要玩一局吗？';
-const ARCADE_LOSE = '真遗憾啊！\n不小心输了。';
+const ARCADE_INTRO = () => t('arcadeIntro');
+const ARCADE_LOSE = () => t('arcadeLose');
 let _shelfOpen      = false;  // 选书面板开启
 let _shelfBookIdx   = -1;     // -1=关, 0-3=阅读中
 let _shelfBookSelected = 0;   // 书单当前选中索引
@@ -471,7 +614,7 @@ document.addEventListener('keydown', (e) => {
 
   keys[e.code] = true;
   if (dialogueChoiceActive) {
-    const opts = DIALOGUE_SCRIPT[dialogueStep]?.options;
+    const opts = DIALOGUE_SCRIPT()[dialogueStep]?.options;
     if (e.code === 'ArrowUp')   { choiceSelected = (choiceSelected - 1 + (opts?.length||2)) % (opts?.length||2); e.preventDefault(); return; }
     if (e.code === 'ArrowDown') { choiceSelected = (choiceSelected + 1) % (opts?.length||2); e.preventDefault(); return; }
     if (e.code === 'Space' || e.code === 'Enter') { executeChoice(choiceSelected); e.preventDefault(); return; }
@@ -496,7 +639,7 @@ document.addEventListener('keydown', (e) => {
   if (_shelfBookIdx >= 0) {
     // 阅读阶段：Enter/Space 推进或关闭
     if (e.code === 'Enter' || e.code === 'Space') {
-      const book = BOOKS[_shelfBookIdx];
+      const book = getBooks()[_shelfBookIdx];
       if (_shelfTypingChars < book.lines[_shelfRevealIdx].length) {
         _shelfTypingChars = book.lines[_shelfRevealIdx].length;
       } else if (_shelfRevealIdx < book.lines.length - 1) {
@@ -519,8 +662,8 @@ document.addEventListener('keydown', (e) => {
       if (_arcadeChoice === 0) {
         // 选择玩：显示结果
         _arcadeStep = 2;
-        _arcadeResult = ARCADE_LOSE;
-        startBubble(arcadeBubble, ARCADE_LOSE);
+        _arcadeResult = ARCADE_LOSE();
+        startBubble(arcadeBubble, ARCADE_LOSE());
       } else {
         // 选择不玩：关闭
         _arcadeAsking = false;
@@ -650,8 +793,8 @@ function advanceDialogue() {
   dlgMovePhases = [];
   dlgMovePhaseIdx = 0;
   dialogueStep++;
-  if (dialogueStep >= DIALOGUE_SCRIPT.length) { dialogueActive = false; return; }
-  processDialogueStep(DIALOGUE_SCRIPT[dialogueStep]);
+  if (dialogueStep >= DIALOGUE_SCRIPT().length) { dialogueActive = false; return; }
+  processDialogueStep(DIALOGUE_SCRIPT()[dialogueStep]);
 }
 
 function processDialogueStep(step) {
@@ -819,7 +962,7 @@ function advanceDialogueOnClick(screenX, screenY) {
 
 // 选中选项 → 玩家重说一遍后推进
 function executeChoice(idx) {
-  const step = DIALOGUE_SCRIPT[dialogueStep];
+  const step = DIALOGUE_SCRIPT()[dialogueStep];
   const chosen = step.options[idx];
   dialogueChoiceActive = false;
   window._choiceBtns = null;
@@ -836,7 +979,7 @@ function executeChoice(idx) {
 // 在 camera transform 内调用，世界坐标气泡，选项竖排
 function drawChoiceBubble(anchorX, anchorY) {
   if (!dialogueChoiceActive) return;
-  const step = DIALOGUE_SCRIPT[dialogueStep];
+  const step = DIALOGUE_SCRIPT()[dialogueStep];
   if (!step || step.type !== 'choice') return;
 
   const opts = step.options;
@@ -909,6 +1052,16 @@ canvas.addEventListener('click', (e) => {
   const sx = (e.clientX - rect.left) * scaleX;
   const sy = (e.clientY - rect.top) * scaleY;
 
+  // 标题画面：检查语言选择按钮
+  if (titleState === 'title' && window._langBtns) {
+    const hit = window._langBtns.find(b => sx >= b.x && sx <= b.x + b.w && sy >= b.y && sy <= b.y + b.h);
+    if (hit) {
+      selectedLang = hit.lang;
+      setLang(hit.lang);
+      return; // 只切换语言，不启动游戏
+    }
+  }
+  
   // 标题画面：点击启动镜头推进
   if (titleState === 'title')   { startTitlePan(); return; }
   if (titleState === 'panning') return; // pan 期间吞掉点击
@@ -933,8 +1086,8 @@ canvas.addEventListener('click', (e) => {
       if (hit.idx === 0) {
         // 选择玩：显示结果
         _arcadeStep = 2;
-        _arcadeResult = ARCADE_LOSE;
-        startBubble(arcadeBubble, ARCADE_LOSE);
+        _arcadeResult = ARCADE_LOSE();
+        startBubble(arcadeBubble, ARCADE_LOSE());
       } else {
         // 选择不玩：关闭
         _arcadeAsking = false;
@@ -966,7 +1119,7 @@ canvas.addEventListener('click', (e) => {
   if (_shelfOpen || _shelfBookIdx >= 0) {
     if (_shelfBookIdx >= 0) {
       // 阅读时：点击推进打字机或关闭
-      const book = BOOKS[_shelfBookIdx];
+      const book = getBooks()[_shelfBookIdx];
       // 如果当前行还没打完，加速打完
       if (_shelfTypingChars < book.lines[_shelfRevealIdx].length) {
         _shelfTypingChars = book.lines[_shelfRevealIdx].length;
@@ -1018,7 +1171,7 @@ function talkToArcade() {
   _arcadeAsking = true;
   _arcadeStep = 0;
   _arcadeChoice = 0;
-  startBubble(arcadeBubble, ARCADE_INTRO);
+  startBubble(arcadeBubble, ARCADE_INTRO());
 }
 
 function updateArcade() {
@@ -1094,7 +1247,7 @@ function updateShelf() {
   // 打字机推进（阅读中）
   if (_shelfBookIdx >= 0) {
     shelfBubble.visible = false;
-    const book = BOOKS[_shelfBookIdx];
+    const book = getBooks()[_shelfBookIdx];
     if (_shelfRevealIdx < book.lines.length) {
       const now = Date.now();
       if (now - _shelfTypingTimer >= _SHELF_CHAR_INTERVAL) {
@@ -1134,7 +1287,7 @@ function drawArcadeChoice() {
   const lineH = fontSize + 8;
   ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
 
-  const opts = ['玩', '不玩'];
+  const opts = [t('arcadePlay'), t('arcadeSkip')];
   const indW = ctx.measureText('▶ ').width;
   const maxW = Math.max(...opts.map(o => ctx.measureText(o).width));
   const boxW = maxW + indW + padding * 2 + 4;
@@ -1258,7 +1411,7 @@ function updateStairsIwata() {
     stairsIwata.y = stairsIwata.target.y;
     stairsIwata.state = 'sitting';
     stairsIwata.dir = 'down';
-    stairsIwata.frame = 0;
+    stairsIwata.frame = getIdleFrame('down');
     return;
   }
 
@@ -2001,7 +2154,7 @@ function drawBookSelector() {
   const lineH = fontSize + 8;
   ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
 
-  const titles = BOOKS.map(b => b.title);
+  const titles = getBooks().map(b => b.title);
   const indW = ctx.measureText('▶ ').width;
   const maxW = Math.max(...titles.map(t => ctx.measureText(t).width));
   const boxW = maxW + indW + padding * 2 + 4;
@@ -2154,11 +2307,11 @@ function drawShelfAskBubble() {
   ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
 
   // 提示语
-  const hintText = '书架上有一些书，来翻看一下吧。';
+  const hintText = t('shelfHint').replace(/\n/g, '');
   const hintWidth = ctx.measureText(hintText).width;
 
   // 显示四本书 + 关闭选项（带《》书名号）
-  const opts = BOOKS.map(b => `《${b.title}》`).concat(['关闭']);
+  const opts = getBooks().map(b => `《${b.title}》`).concat([t('shelfClose')]);
   const indW = ctx.measureText('▶ ').width;
   const maxW = Math.max(...opts.map(o => ctx.measureText(o).width), hintWidth);
   const boxW = maxW + indW + padding * 2 + 4;
@@ -2246,13 +2399,49 @@ function drawTitleOverlay() {
       tw, th);
   }
 
+  // 语言选择按钮（标题画面静止时显示）
+  if (titleState === 'title') {
+    const btnZoom = getZoom();
+    const btnFSize = Math.round(14 * btnZoom);
+    ctx.font = `${btnFSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+    
+    const zhText = '中文';
+    const enText = 'English';
+    const gap = 20 * btnZoom;
+    const zhW = ctx.measureText(zhText).width;
+    const enW = ctx.measureText(enText).width;
+    const totalW = zhW + gap + enW;
+    const startX = (canvas.width - totalW) / 2;
+    const btnY = Math.round(canvas.height / 2 - btnFSize * 0.5);
+    
+    // 中文按钮
+    const isZh = selectedLang === 'zh';
+    ctx.fillStyle = isZh ? 'rgba(42, 34, 24, 0.9)' : 'rgba(42, 34, 24, 0.4)';
+    ctx.fillText(zhText, startX, btnY);
+    
+    // 分隔线
+    ctx.fillStyle = 'rgba(42, 34, 24, 0.3)';
+    ctx.fillRect(startX + zhW + gap/2 - 1, btnY - btnFSize * 0.8, 2, btnFSize);
+    
+    // 英文按钮
+    const isEn = selectedLang === 'en';
+    ctx.fillStyle = isEn ? 'rgba(42, 34, 24, 0.9)' : 'rgba(42, 34, 24, 0.4)';
+    ctx.fillText(enText, startX + zhW + gap, btnY);
+    
+    // 记录按钮位置用于点击检测
+    window._langBtns = [
+      { x: startX, y: btnY - btnFSize * 0.8, w: zhW, h: btnFSize, lang: 'zh' },
+      { x: startX + zhW + gap, y: btnY - btnFSize * 0.8, w: enW, h: btnFSize, lang: 'en' }
+    ];
+  }
+
   // 闪烁提示文字
   const blink = 0.35 + 0.35 * Math.sin(Date.now() * 0.0025);
   const zoom = getZoom();
   const fSize = Math.round(16 * zoom);
   ctx.font = `${fSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
   ctx.fillStyle = `rgba(42, 34, 24, ${blink})`;
-  const hint = 'click or press space';
+  const hint = t('hint');
   const hw = ctx.measureText(hint).width;
   ctx.fillText(hint,
     Math.round((canvas.width - hw) / 2),
@@ -2262,7 +2451,7 @@ function drawTitleOverlay() {
   const copySize = Math.round(10 * zoom);
   ctx.font = `${copySize}px 'ZhengGe', 'DotGothic16', sans-serif`;
   ctx.fillStyle = 'rgba(42, 34, 24, 0.6)';
-  const copyText = '© 2020-2026 Natsume aka. Yi Chen';
+  const copyText = t('copy');
   const cw = ctx.measureText(copyText).width;
   ctx.fillText(copyText,
     Math.round((canvas.width - cw) / 2),
@@ -2340,7 +2529,7 @@ function loop(timestamp) {
       if (_platformArriveTime < 0) _platformArriveTime = Date.now();
       if (!_hintShown && Date.now() - _platformArriveTime > 5000) {
         _hintShown = true;
-        startBubble(hintBubble, '坐下来休息一下吧。');
+        startBubble(hintBubble, t('platformHint'));
       }
     }
     if (seated) hintBubble.visible = false;
