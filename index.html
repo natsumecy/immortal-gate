@@ -2252,8 +2252,8 @@ function drawTitleOverlay() {
   // 版权信息（稍低位置）
   const copySize = Math.round(10 * zoom);
   ctx.font = `${copySize}px 'ZhengGe', 'DotGothic16', sans-serif`;
-  ctx.fillStyle = `rgba(42, 34, 24, ${blink * 0.7})`;
-  const copyText = '©2020-2026 Natsume aka. Yi Chen';
+  ctx.fillStyle = 'rgba(42, 34, 24, 0.6)';
+  const copyText = '© 2020-2026 Natsume aka. Yi Chen';
   const cw = ctx.measureText(copyText).width;
   ctx.fillText(copyText,
     Math.round((canvas.width - cw) / 2),
