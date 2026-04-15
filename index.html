@@ -921,9 +921,13 @@ canvas.addEventListener('click', (e) => {
     return;
   }
 
-  // 街机选项点击处理
+  // 街机选项点击处理（需要将屏幕坐标转为世界坐标）
   if (_arcadeAsking && _arcadeStep === 1 && window._arcadeBtns) {
-    const hit = window._arcadeBtns.find(b => sx >= b.wx && sx <= b.wx + b.w && sy >= b.wy && sy <= b.wy + b.h);
+    const zoom = getZoom();
+    const _camY = scene === 'street' ? Math.max(0, player.y - viewH / 2) : player.y - viewH / 2;
+    const wx = sx / zoom + player.x - viewW / 2;
+    const wy = sy / zoom + _camY;
+    const hit = window._arcadeBtns.find(b => wx >= b.wx && wx <= b.wx + b.w && wy >= b.wy && wy <= b.wy + b.h);
     if (hit) {
       if (hit.idx === 0) {
         // 选择玩：显示结果
