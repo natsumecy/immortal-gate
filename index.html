@@ -302,7 +302,7 @@ const BENCH_H = 34;
 
 const bench = { x: 490, y: 590 };
 const stairsBenches = [
-  { x: 853, y: 145 },
+  { x: 970, y: 145 },  // 左边椅子右移，与右边紧挨
   { x: 1013, y: 145 },
 ];
 const benchSprite = new Image();
@@ -487,7 +487,7 @@ const TURNSTILE_DETECT_DIST = 90;  // 感应距离
 
 const turnstile = {
   x: 500,
-  y: 360,
+  y: 355,  // 前移5格，紧贴三角收束口
   frame: 0,          // 0=关闭, 7=全开
   frameTimer: 0,
   frameInterval: 5,  // 开/关动画速度
