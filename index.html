@@ -301,12 +301,14 @@ const BENCH_W = 69;
 const BENCH_H = 34;
 
 const bench = { x: 490, y: 590 };
-const stairsBenches = [
-  { x: 970, y: 145 },  // 左边椅子右移，与右边紧挨
-  { x: 1013, y: 145 },
-];
+const LONG_BENCH_W = 92;
+const LONG_BENCH_H = 34;
+const stairsBench = { x: 970, y: 145 };  // 只有一把长椅，位置在楼梯场景
 const benchSprite = new Image();
 benchSprite.src = 'assets/images/bench.png';
+
+const longBenchSprite = new Image();
+longBenchSprite.src = 'assets/images/bench-long.png';
 
 
 const waitingRoomSprite = new Image();
@@ -349,11 +351,11 @@ trainSprite.src = 'assets/sprites/train.png';
 
 // 站台岩田：列车停稳后从车厢走出，缓缓坐到椅子上
 const stairsIwata = {
-  x: stairsBenches[1].x, y: 330,  // 与椅子2同一x列，直线向上走
+  x: stairsBench.x + 30, y: 330,  // 从长椅右侧走来
   dir: 'down', frame: 0,
   frameTimer: 0, frameInterval: 14,
   state: 'hidden',
-  target: { x: stairsBenches[1].x, y: stairsBenches[1].y - 10 },
+  target: { x: stairsBench.x + 30, y: stairsBench.y - 10 },  // 目标：长椅右侧座位
 };
 
 // ── 对白脚本 ──────────────────────────────────────
@@ -833,11 +835,11 @@ function processDialogueStep(step) {
 
 function executeDialogueAction(what) {
   const LEFT_X_P = 630, LEFT_X_I = 715;   // 站台左侧折返点
-  const TOP_Y = 25;                         // 椅子1正上方 y
-  const DEST_X_P = stairsBenches[0].x;     // 853
-  const DEST_X_I = stairsBenches[0].x + 80; // 933
-  const BENCH_Y_P = stairsBenches[0].y - 10;  // 与岩田一样靠近椅子
-  const BENCH_Y_I = stairsBenches[1].y - 10;
+  const TOP_Y = 25;                         // 长椅正上方 y
+  const DEST_X_P = stairsBench.x - 25;     // 玩家坐长椅左侧
+  const DEST_X_I = stairsBench.x + 30;     // 岩田坐长椅右侧
+  const BENCH_Y_P = stairsBench.y - 10;    // 与岩田一样靠近椅子
+  const BENCH_Y_I = stairsBench.y - 10;
 
   if (what === 'walk_to_edge') {
     // 左 → 上 → 右，到达椅子1正上方
@@ -853,7 +855,7 @@ function executeDialogueAction(what) {
     dlgMovePhases = [
       { p: { x: LEFT_X_P, y: TOP_Y },              i: { x: LEFT_X_I, y: TOP_Y },              speed: 0.65 },
       { p: { x: LEFT_X_P, y: BENCH_Y_P },          i: { x: LEFT_X_I, y: BENCH_Y_I },          speed: 0.65 },
-      { p: { x: DEST_X_P, y: BENCH_Y_P, dir:'down'}, i: { x: stairsBenches[1].x, y: BENCH_Y_I, dir:'down'}, speed: 0.65 },
+      { p: { x: DEST_X_P, y: BENCH_Y_P, dir:'down'}, i: { x: DEST_X_I, y: BENCH_Y_I, dir:'down'}, speed: 0.65 },
     ];
     dlgMovePhaseIdx = 0;
     dialogueWaitsMovement = true;
@@ -869,7 +871,7 @@ function executeDialogueAction(what) {
     // 岩田慢慢走回列车（玩家原地不动）
     dlgMovePhases = [
       { p: { x: player.x, y: player.y },
-        i: { x: stairsBenches[1].x, y: 360, hide: true },
+        i: { x: stairsBench.x + 30, y: 360, hide: true },
         speed: 0.45 },  // 岩田依依不舍地上车
     ];
     dlgMovePhaseIdx = 0;
@@ -1865,7 +1867,7 @@ function update(deltaTime) {
 
     // 碰撞检测
     const streetBlocked = scene === 'street' && (blockedByTurnstile(nextX, nextY) || blockedByArcade(nextX, nextY) || blockedByShelf(nextX, nextY));
-    const stairsBlocked = scene === 'stairs' && stairsBenches.some(b => blockedByOneBench(b.x, b.y, nextX, nextY));
+    const stairsBlocked = scene === 'stairs' && blockedByOneBench(stairsBench.x, stairsBench.y, nextX, nextY);
     if (!streetBlocked && !stairsBlocked && playerInBounds(nextX, nextY)) {
       player.x = nextX;
       player.y = nextY;
@@ -1883,13 +1885,15 @@ function update(deltaTime) {
       player.frame = getIdleFrame(player.dir);
       // 站台场景：靠近椅子时自动朝正面
       if (scene === 'stairs') {
-        const hw = BENCH_W * SCALE / 2 + 30;
-        // 只有椅子1触发落座（椅子2留给岩田）
-        const b0 = stairsBenches[0];
+        // 长椅坐下检测：玩家只能坐在左侧（岩田坐右侧）
+        const hw = LONG_BENCH_W * SCALE / 2;
+        const hh = LONG_BENCH_H * SCALE / 2;
+        // 左侧区域：长椅中心偏左
+        const onLeftSide = player.x < stairsBench.x && player.x > stairsBench.x - hw - 10;
         const nearBench =
-          Math.abs(player.x - b0.x) < hw &&
-          player.y > b0.y - BENCH_H * SCALE / 2 - 10 &&
-          player.y < b0.y + BENCH_H * SCALE / 2 + 10;
+          onLeftSide &&
+          player.y > stairsBench.y - hh - 10 &&
+          player.y < stairsBench.y + hh + 10;
         if (nearBench) {
           player.dir = 'down';
           // 第一次落座：触发列车驶入 + 时钟启动
@@ -1949,7 +1953,7 @@ function update(deltaTime) {
   const nextY = player.y + (dy / dist) * moveSpeed;
   if (!playerInBounds(nextX, nextY) ||
       (scene === 'street' && (blockedByTurnstile(nextX, nextY) || blockedByArcade(nextX, nextY) || blockedByShelf(nextX, nextY))) ||
-      (scene === 'stairs' && stairsBenches.some(b => blockedByOneBench(b.x, b.y, nextX, nextY)))) {
+      (scene === 'stairs' && blockedByOneBench(stairsBench.x, stairsBench.y, nextX, nextY))) {
     player.moving = false;
     player.frame = getIdleFrame(player.dir);
     return;
@@ -2110,21 +2114,25 @@ function drawStairsScene() {
   }
 
   // 站台实体 y-sort（长椅 + 时钟 + 玩家 + 已踏上站台的岩田）
-  const bw = BENCH_W * SCALE, bh = BENCH_H * SCALE;
+  const cw = CLOCK_FRAME_W * SCALE, ch = CLOCK_FRAME_H * SCALE;
+  // 脚底已离开列车区域才进 y-sort（整个精灵都在站台上）
+  const iwataOnPlatform = stairsIwata.state !== 'hidden' && !iwataInTrain;
+
+  const lbw = LONG_BENCH_W * SCALE, lbh = LONG_BENCH_H * SCALE;
   const cw = CLOCK_FRAME_W * SCALE, ch = CLOCK_FRAME_H * SCALE;
   // 脚底已离开列车区域才进 y-sort（整个精灵都在站台上）
   const iwataOnPlatform = stairsIwata.state !== 'hidden' && !iwataInTrain;
 
   const stairsEntities = [
-    ...stairsBenches.map(b => ({
-      sortY: b.y + bh / 2,
+    {
+      sortY: stairsBench.y + lbh / 2,
       draw() {
-        if (!benchSprite.complete) return;
+        if (!longBenchSprite.complete) return;
         ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(benchSprite, 0, 0, BENCH_W, BENCH_H,
-          b.x - bw / 2, b.y - bh / 2, bw, bh);
+        ctx.drawImage(longBenchSprite, 0, 0, LONG_BENCH_W, LONG_BENCH_H,
+          stairsBench.x - lbw / 2, stairsBench.y - lbh / 2, lbw, lbh);
       }
-    })),
+    },
     {
       sortY: clockPos.y,
       draw() {
