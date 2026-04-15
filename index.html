@@ -1208,6 +1208,22 @@ canvas.addEventListener('click', (e) => {
     return;
   }
 
+  // 书架询问阶段（提示气泡）点击处理 - 手机端支持
+  if (_shelfAsking && _shelfAskStep === 0) {
+    // 提示显示完直接进入选书列表
+    if (shelfBubble.displayed.length >= shelfBubble.text.length) {
+      _shelfAsking = false;
+      _shelfOpen = true;
+      _shelfBookIdx = -1;
+      _shelfBookSelected = 0;
+      shelfBubble.visible = false;
+    } else {
+      // 加速显示
+      shelfBubble.displayed = shelfBubble.text;
+    }
+    return;
+  }
+
   // 书架 UI（canvas 坐标，在 zoom 变换外）
   // 书架选书阶段点击处理
   if (_shelfOpen && _shelfBookIdx < 0 && window._shelfBtns) {
