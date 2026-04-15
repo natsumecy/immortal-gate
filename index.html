@@ -70,6 +70,8 @@ const I18N = {
     shelfHint: '书架上有一些书，\n来翻看一下吧。',
     shelfClose: '关闭',
     platformHint: '坐下来休息一下吧。',
+    turnstileLocked: '还没到时间。',
+    turnstileUnlocked: '现在可以通过了。',
     books: [
       { title: '无', lines: ['一个人会死三次。','第一次，是心跳停止的那一刻。','第二次，是从所有人的生活里慢慢消失。','第三次，是最后一个记得他的人，也闭上了眼睛。','我们所做的一切，','只是让那一刻，','再晚一点发生。'] },
       { title: '界', lines: ['贾宝玉跟着秦可卿，走进了太虚幻境。','那里记录着所有他爱过的人的命运。','他读了册子，听了曲子，见了不该见的事。','醒来之后，','什么都不记得。','只是后来再见到那些人时，','总觉得有些事情，','好像已经发生过了。'] },
@@ -168,6 +170,8 @@ const I18N = {
     shelfHint: 'There are some books\non the shelf. Take a look?',
     shelfClose: 'Close',
     platformHint: 'Sit down and rest for a while.',
+    turnstileLocked: 'Not yet the right time.',
+    turnstileUnlocked: 'You may pass now.',
     books: [
       { title: 'Void', lines: ['A person dies three times.','First, when the heart stops.','Second, when they slowly fade from everyone\'s life.','Third, when the last person who remembers them\ncloses their eyes.','Everything we do,','is just to delay that moment,','a little longer.'] },
       { title: 'Realm', lines: ['Jia Baoyu followed Qin Keqing into the Land of Illusion.','There, the destinies of all he loved were recorded.','He read the registers, heard the songs, saw what he shouldn\'t.','When he woke,','he remembered nothing.','Yet later, when he saw those people again,','he always felt that something,','had already happened.'] },
@@ -455,6 +459,12 @@ let _arcadeAsking = false;      // 是否正在街机对话
 let _arcadeStep = 0;            // 0=介绍, 1=选项, 2=结果
 let _arcadeChoice = 0;          // 0=玩, 1=不玩
 let _arcadeResult = '';         // 游戏结果文字
+
+// 闸机解锁条件：需要与街机和书架都交互过
+let _interactedWithArcade = false;
+let _interactedWithShelf = false;
+let _turnstileMessage = '';     // 闸机提示文字
+let _turnstileMessageTimer = 0; // 提示文字计时器
 const ARCADE_INTRO = () => t('arcadeIntro');
 const ARCADE_LOSE = () => t('arcadeLose');
 let _shelfOpen      = false;  // 选书面板开启
@@ -662,10 +672,12 @@ document.addEventListener('keydown', (e) => {
       if (_arcadeChoice === 0) {
         // 选择玩：显示结果
         _arcadeStep = 2;
+        _interactedWithArcade = true;
         _arcadeResult = ARCADE_LOSE();
         startBubble(arcadeBubble, ARCADE_LOSE());
       } else {
         // 选择不玩：关闭
+        _interactedWithArcade = true;
         _arcadeAsking = false;
         _arcadeStep = 0;
         arcadeBubble.visible = false;
@@ -676,6 +688,7 @@ document.addEventListener('keydown', (e) => {
   // 街机结果阶段键盘关闭
   if (_arcadeAsking && _arcadeStep === 2) {
     if (e.code === 'Enter' || e.code === 'Space') {
+      _interactedWithArcade = true;
       _arcadeAsking = false;
       _arcadeStep = 0;
       arcadeBubble.visible = false;
@@ -1083,6 +1096,8 @@ canvas.addEventListener('click', (e) => {
     const wy = sy / zoom + _camY;
     const hit = window._arcadeBtns.find(b => wx >= b.wx && wx <= b.wx + b.w && wy >= b.wy && wy <= b.wy + b.h);
     if (hit) {
+      // 标记已与街机交互
+      _interactedWithArcade = true;
       if (hit.idx === 0) {
         // 选择玩：显示结果
         _arcadeStep = 2;
@@ -1099,6 +1114,8 @@ canvas.addEventListener('click', (e) => {
   }
   // 街机结果阶段点击关闭
   if (_arcadeAsking && _arcadeStep === 2) {
+    // 标记已与街机交互
+    _interactedWithArcade = true;
     _arcadeAsking = false;
     _arcadeStep = 0;
     arcadeBubble.visible = false;
@@ -1217,6 +1234,8 @@ function cancelShelfOpen() {
 }
 
 function openBook(idx) {
+  // 标记已与书架交互（真正开始阅读才算）
+  _interactedWithShelf = true;
   _shelfBookIdx    = idx;
   _shelfOpen       = false;  // 书单关闭，进入阅读模式
   _shelfOpenTime   = Date.now();
@@ -1428,11 +1447,77 @@ function updateStairsIwata() {
   }
 }
 
+// 简单的哔哔声音效（使用 Web Audio API）
+function playBeepSound() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.frequency.value = 800; // 800Hz 哔声
+    oscillator.type = 'square';
+
+    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+
+    oscillator.start(audioCtx.currentTime);
+    oscillator.stop(audioCtx.currentTime + 0.1);
+  } catch (e) {
+    // 音频播放失败时静默处理
+  }
+}
+
+// 绘制闸机提示消息
+function drawTurnstileMessage() {
+  if (!_turnstileMessage) return;
+
+  // 显示2秒后消失
+  const elapsed = Date.now() - _turnstileMessageTimer;
+  if (elapsed > 2000) {
+    _turnstileMessage = '';
+    return;
+  }
+
+  const zoom = getZoom();
+  const screenX = (turnstile.x - player.x) * zoom + canvas.width / 2;
+  const screenY = (turnstile.y - player.y) * zoom + canvas.height / 2;
+
+  const fontSize = Math.round(16 * zoom);
+  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+  ctx.fillStyle = '#2a2218';
+  ctx.textAlign = 'center';
+
+  const alpha = Math.min(1, (2000 - elapsed) / 500); // 最后500ms淡出
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillText(_turnstileMessage, screenX, screenY - 60 * zoom);
+  ctx.restore();
+  ctx.textAlign = 'left';
+}
+
 function updateTurnstile() {
   const dist = distTo(player, turnstile);
+  const canPass = _interactedWithArcade && _interactedWithShelf;
 
-  if (dist < TURNSTILE_DETECT_DIST && turnstile.state === 'closed') {
-    turnstile.state = 'opening';
+  // 玩家靠近闸机
+  if (dist < TURNSTILE_DETECT_DIST) {
+    if (canPass) {
+      // 条件满足，正常开门
+      if (turnstile.state === 'closed') {
+        turnstile.state = 'opening';
+      }
+    } else {
+      // 条件不满足，显示提示并发出哔哔声
+      if (turnstile.state === 'closed') {
+        _turnstileMessage = t('turnstileLocked');
+        _turnstileMessageTimer = Date.now();
+        // 播放哔哔声（简单的音频反馈）
+        playBeepSound();
+      }
+    }
   } else if (dist >= TURNSTILE_DETECT_DIST && turnstile.state === 'open') {
     turnstile.state = 'closing';
   }
@@ -2484,6 +2569,9 @@ function draw() {
 
   // 书架 UI（canvas px 空间，不受 zoom 影响）
   if (scene === 'street' && titleState === 'playing') drawShelfUI();
+
+  // 闸机提示消息
+  if (scene === 'street' && titleState === 'playing') drawTurnstileMessage();
 
   // 标题叠加层（canvas px 空间，不受 zoom 影响）
   if (titleState === 'title' || titleState === 'panning') drawTitleOverlay();
