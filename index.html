@@ -463,8 +463,7 @@ let _arcadeResult = '';         // 游戏结果文字
 // 闸机解锁条件：需要与街机和书架都交互过
 let _interactedWithArcade = false;
 let _interactedWithShelf = false;
-let _turnstileMessage = '';     // 闸机提示文字
-let _turnstileMessageTimer = 0; // 提示文字计时器
+const turnstileBubble = makeBubble();  // 闸机提示气泡
 const ARCADE_INTRO = () => t('arcadeIntro');
 const ARCADE_LOSE = () => t('arcadeLose');
 let _shelfOpen      = false;  // 选书面板开启
@@ -1471,33 +1470,6 @@ function playBeepSound() {
 }
 
 // 绘制闸机提示消息
-function drawTurnstileMessage() {
-  if (!_turnstileMessage) return;
-
-  // 显示2秒后消失
-  const elapsed = Date.now() - _turnstileMessageTimer;
-  if (elapsed > 2000) {
-    _turnstileMessage = '';
-    return;
-  }
-
-  const zoom = getZoom();
-  const screenX = (turnstile.x - player.x) * zoom + canvas.width / 2;
-  const screenY = (turnstile.y - player.y) * zoom + canvas.height / 2;
-
-  const fontSize = Math.round(16 * zoom);
-  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
-  ctx.fillStyle = '#2a2218';
-  ctx.textAlign = 'center';
-
-  const alpha = Math.min(1, (2000 - elapsed) / 500); // 最后500ms淡出
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.fillText(_turnstileMessage, screenX, screenY - 60 * zoom);
-  ctx.restore();
-  ctx.textAlign = 'left';
-}
-
 function updateTurnstile() {
   const dist = distTo(player, turnstile);
   const canPass = _interactedWithArcade && _interactedWithShelf;
@@ -1510,16 +1482,16 @@ function updateTurnstile() {
         turnstile.state = 'opening';
       }
     } else {
-      // 条件不满足，强制关闭闸机并显示提示
+      // 条件不满足，强制关闭闸机并显示提示气泡
       if (turnstile.state !== 'closed') {
         turnstile.state = 'closed';
         turnstile.frame = 0;
         turnstile.frameTimer = 0;
       }
-      // 显示提示并发出哔哔声（限制频率，避免连续触发）
-      if (Date.now() - _turnstileMessageTimer > 1000) {
-        _turnstileMessage = t('turnstileLocked');
-        _turnstileMessageTimer = Date.now();
+      // 显示提示气泡并发出哔哔声（限制频率，避免连续触发）
+      if (!turnstileBubble.visible && Date.now() - (turnstileBubble.lastShowTime || 0) > 2000) {
+        startBubble(turnstileBubble, t('turnstileLocked'));
+        turnstileBubble.lastShowTime = Date.now();
         playBeepSound();
       }
     }
@@ -2059,6 +2031,7 @@ function drawStreetScene() {
   drawBubble(arcade.x, arcade.y - 20, arcadeBubble);
   drawArcadeChoice();  // 绘制街机选项
   drawBubble(shelf.x,  shelf.y  - 20, shelfBubble);
+  drawBubble(turnstile.x, turnstile.y - 20, turnstileBubble);  // 闸机提示气泡
 
   ctx.restore();
 }
@@ -2575,9 +2548,6 @@ function draw() {
   // 书架 UI（canvas px 空间，不受 zoom 影响）
   if (scene === 'street' && titleState === 'playing') drawShelfUI();
 
-  // 闸机提示消息
-  if (scene === 'street' && titleState === 'playing') drawTurnstileMessage();
-
   // 标题叠加层（canvas px 空间，不受 zoom 影响）
   if (titleState === 'title' || titleState === 'panning') drawTitleOverlay();
 
@@ -2635,6 +2605,7 @@ function loop(timestamp) {
     updateBubble(bubble);
     updateBubble(arcadeBubble);
     updateBubble(shelfBubble);
+    updateBubble(turnstileBubble);
   }
   draw();
   requestAnimationFrame(loop);
