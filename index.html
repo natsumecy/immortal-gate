@@ -320,8 +320,8 @@ let _shelfBookSelected = 0;   // 书单当前选中索引
 let _shelfOpenTime  = -1;
 let _shelfRevealIdx  = 0;    // 已完整显示的行序号
 let _shelfTypingChars = 0;   // 当前行已打出字符数
-let _shelfTypingTimer = 0;
-const _SHELF_CHAR_INTERVAL = 10; // 和岩田对话一致，每10帧出一个字符
+let _shelfTypingTimer = Date.now();
+const _SHELF_CHAR_INTERVAL = 60; // 和岩田对话一致，每60ms出一个字符（时间基准）
 
 // 书架询问阶段（类似街机对话）
 let _shelfAsking = false;     // 是否正在询问"要翻阅吗"
@@ -417,7 +417,7 @@ const TALK_DIST = 90;     // 触发对话的距离
 
 // 通用气泡工厂
 function makeBubble() {
-  return { text: '', displayed: '', timer: 0, interval: 10, visible: false };
+  return { text: '', displayed: '', timer: 0, lastTypeTime: 0, interval: 60, visible: false };
 }
 
 const bubble = makeBubble();       // 玩家气泡
@@ -456,6 +456,7 @@ function startBubble(bub, text) {
   bub.text = text;
   bub.displayed = '';
   bub.timer = 0;
+  bub.lastTypeTime = Date.now();
   bub.visible = true;
 }
 
@@ -501,7 +502,7 @@ document.addEventListener('keydown', (e) => {
       } else if (_shelfRevealIdx < book.lines.length - 1) {
         _shelfRevealIdx++;
         _shelfTypingChars = 0;
-        _shelfTypingTimer = 0;
+        _shelfTypingTimer = Date.now();
       } else {
         closeBook();
       }
@@ -557,9 +558,9 @@ document.addEventListener('keyup', (e) => { keys[e.code] = false; });
 function updateBubble(bub) {
   if (!bub.visible) return;
   if (bub.displayed.length < bub.text.length) {
-    bub.timer++;
-    if (bub.timer >= bub.interval) {
-      bub.timer = 0;
+    const now = Date.now();
+    if (now - bub.lastTypeTime >= bub.interval) {
+      bub.lastTypeTime = now;
       bub.displayed += bub.text[bub.displayed.length];
     }
   }
@@ -973,7 +974,7 @@ canvas.addEventListener('click', (e) => {
         // 进入下一行
         _shelfRevealIdx++;
         _shelfTypingChars = 0;
-        _shelfTypingTimer = 0;
+        _shelfTypingTimer = Date.now();
       } else {
         // 全部显示完毕，返回选书菜单
         closeBook();
@@ -1068,7 +1069,7 @@ function openBook(idx) {
   _shelfOpenTime   = Date.now();
   _shelfRevealIdx  = 0;
   _shelfTypingChars = 0;
-  _shelfTypingTimer = 0;
+  _shelfTypingTimer = Date.now();
 }
 
 function closeShelf() {
@@ -1076,7 +1077,7 @@ function closeShelf() {
   _shelfBookIdx = -1;
   _shelfRevealIdx  = 0;
   _shelfTypingChars = 0;
-  _shelfTypingTimer = 0;
+  _shelfTypingTimer = Date.now();
 }
 
 function closeBook() {
@@ -1086,7 +1087,7 @@ function closeBook() {
   _shelfOpenTime = Date.now();
   _shelfRevealIdx  = 0;
   _shelfTypingChars = 0;
-  _shelfTypingTimer = 0;
+  _shelfTypingTimer = Date.now();
 }
 
 function updateShelf() {
@@ -1095,9 +1096,9 @@ function updateShelf() {
     shelfBubble.visible = false;
     const book = BOOKS[_shelfBookIdx];
     if (_shelfRevealIdx < book.lines.length) {
-      _shelfTypingTimer++;
-      if (_shelfTypingTimer >= _SHELF_CHAR_INTERVAL) {
-        _shelfTypingTimer = 0;
+      const now = Date.now();
+      if (now - _shelfTypingTimer >= _SHELF_CHAR_INTERVAL) {
+        _shelfTypingTimer = now;
         const curLine = book.lines[_shelfRevealIdx];
         if (_shelfTypingChars < curLine.length) _shelfTypingChars++;
         // 打完当前行后暂停，等待点击
