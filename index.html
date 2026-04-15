@@ -41,7 +41,8 @@ window.addEventListener('resize', resizeCanvas);
 const FRAME_W = 48;
 const FRAME_H = 58;
 const SCALE = 2;
-const SPEED = 1.5;
+const SPEED = 2.0;
+let lastTime = 0;  // 用于基于时间的移动
 
 // 斜向楼梯单位向量：精确匹配楼梯几何 (60,380)→(556,84)，零漂移
 const DIAG_DX =  496 / Math.sqrt(496*496 + 296*296);  // ≈ 0.858
@@ -1529,7 +1530,12 @@ function inDiagonalZone(x, y) {
   return Math.abs(x - cx) <= 58;
 }
 
-function update() {
+function update(deltaTime) {
+  // 基于时间的移动系数（以 60fps = 16.67ms 为基准）
+  const timeScale = deltaTime / 16.67;
+  const moveSpeed = SPEED * timeScale;
+  const diagSpeed = moveSpeed * Math.sin(27 * Math.PI / 180);
+
   // 场景切换触发（无条件，每帧都判断）
   // 走廊入口：人物进入黑色渐变通道内才触发，X 范围限制在通道宽度内
   if (scene === 'street' && fadeState === 'none' &&
@@ -1590,15 +1596,14 @@ function update() {
 
     if (inDiagonalZone(player.x, player.y)) {
       // 斜梯轨道移动：上行时 y 推进 + x 贴中心线；到顶后向右滑入站台
-      const DIAG_SPEED = SPEED * Math.sin(27 * Math.PI / 180);
       if (right) {
         if (player.y > 84) {
           // 斜梯段：沿轨道上升
-          player.y = Math.max(player.y - DIAG_SPEED, 84);
+          player.y = Math.max(player.y - diagSpeed, 84);
           player.x = 60 + (380 - player.y) / 296 * 496;
         } else {
           // 顶端平台入口：直接向右走上站台
-          const nx = player.x + SPEED;
+          const nx = player.x + moveSpeed;
           if (playerInBounds(nx, player.y)) player.x = nx;
         }
         player.dir = 'up'; player.moving = true;
@@ -1606,7 +1611,7 @@ function update() {
         return;
       } else if (left) {
         // 下行：沿轨道下退
-        const nextY = player.y + DIAG_SPEED;
+        const nextY = player.y + diagSpeed;
         if (nextY <= 380) {
           player.y = nextY;
           player.x = 60 + (380 - player.y) / 296 * 496;
@@ -1629,8 +1634,8 @@ function update() {
       return;
     }
 
-    const nextX = player.x + kx * SPEED;
-    const nextY = player.y + ky * SPEED;
+    const nextX = player.x + kx * moveSpeed;
+    const nextY = player.y + ky * moveSpeed;
 
     // 碰撞检测
     const streetBlocked = scene === 'street' && (blockedByTurnstile(nextX, nextY) || blockedByArcade(nextX, nextY) || blockedByShelf(nextX, nextY));
@@ -1674,7 +1679,7 @@ function update() {
   const dy = player.target.y - player.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
 
-  if (dist < SPEED + 1) {
+  if (dist < moveSpeed + 1) {
     player.x = player.target.x;
     player.y = player.target.y;
     player.moving = false;
@@ -1684,22 +1689,21 @@ function update() {
 
   // 点击移动时，斜梯区域沿轨道行走（防止直线路径超出走廊）
   if (inDiagonalZone(player.x, player.y)) {
-    const DIAG_SPEED = SPEED * Math.sin(27 * Math.PI / 180);
     if (player.target.y <= player.y) {
       // 上行：沿轨道向上
       if (player.y > 84) {
-        player.y = Math.max(player.y - DIAG_SPEED, 84);
+        player.y = Math.max(player.y - diagSpeed, 84);
         player.x = 60 + (380 - player.y) / 296 * 496;
       } else {
         // 到顶，向右滑入站台
-        const nx = player.x + SPEED;
+        const nx = player.x + moveSpeed;
         if (playerInBounds(nx, player.y)) player.x = nx;
         else { player.moving = false; player.frame = getIdleFrame(player.dir); return; }
       }
       player.dir = 'up';
     } else {
       // 下行：沿轨道向下，超过 y=380 后让正常移动接管
-      player.y += DIAG_SPEED;
+      player.y += diagSpeed;
       player.x = player.y >= 380 ? 60 : 60 + (380 - player.y) / 296 * 496;
       player.dir = 'down';
     }
@@ -1715,8 +1719,8 @@ function update() {
   }
 
   // 碰撞检测
-  const nextX = player.x + (dx / dist) * SPEED;
-  const nextY = player.y + (dy / dist) * SPEED;
+  const nextX = player.x + (dx / dist) * moveSpeed;
+  const nextY = player.y + (dy / dist) * moveSpeed;
   if (!playerInBounds(nextX, nextY) ||
       (scene === 'street' && (blockedByTurnstile(nextX, nextY) || blockedByArcade(nextX, nextY) || blockedByShelf(nextX, nextY))) ||
       (scene === 'stairs' && stairsBenches.some(b => blockedByOneBench(b.x, b.y, nextX, nextY)))) {
@@ -2052,12 +2056,12 @@ function drawBookReader() {
 
   const anchorX = screenX;
   const anchorY = screenY - 20 * zoom;
-  const padding = 10;
-  const fontSize = 16;
+  const padding = 10 * zoom;
+  const fontSize = Math.round(16 * zoom);
   ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
 
   // 单行长文本自动换行
-  const maxWidth = 200;
+  const maxWidth = 200 * zoom;
   let lines = [];
   let line = '';
   for (const ch of text) {
@@ -2077,7 +2081,7 @@ function drawBookReader() {
   }
   lines = lines.filter(l => l.length > 0);
 
-  const lineH = fontSize + 5;
+  const lineH = fontSize + 5 * zoom;
   const boxW = Math.max(...lines.map(l => ctx.measureText(l).width)) + padding * 2;
   const boxH = lines.length * lineH + padding * 2 - 5;
   const bx = anchorX - boxW / 2;
@@ -2115,18 +2119,18 @@ function drawBookReader() {
 
   // 书名小标签（左上角）
   const titleW = ctx.measureText(book.title).width;
-  const tagW = titleW + 12;
-  const tagH = 20;
-  const tagX = bx + 8;
-  const tagY = by - tagH + 4;
+  const tagW = titleW + 12 * zoom;
+  const tagH = 20 * zoom;
+  const tagX = bx + 8 * zoom;
+  const tagY = by - tagH + 4 * zoom;
   ctx.fillStyle = 'rgba(255, 252, 244, 0.9)';
-  roundRect(ctx, tagX, tagY, tagW, tagH, 4);
+  roundRect(ctx, tagX, tagY, tagW, tagH, 4 * zoom);
   ctx.fill();
   ctx.strokeStyle = 'rgba(50, 40, 30, 0.2)';
   ctx.lineWidth = 1;
   ctx.stroke();
   ctx.fillStyle = 'rgba(42, 34, 24, 0.5)';
-  ctx.fillText(book.title, tagX + 6, tagY + 14);
+  ctx.fillText(book.title, tagX + 6 * zoom, tagY + 14 * zoom);
 }
 
 // 绘制书架选书气泡（直接显示四本书 + 关闭）
@@ -2293,7 +2297,12 @@ function draw() {
   drawEndSequence();
 }
 
-function loop() {
+function loop(timestamp) {
+  // 计算时间增量（毫秒），用于基于时间的移动
+  if (!lastTime) lastTime = timestamp;
+  const deltaTime = timestamp - lastTime;
+  lastTime = timestamp;
+
   // ── 标题 / pan 阶段：冻结游戏逻辑 ──
   if (titleState === 'panning') {
     const t = Math.min(1, (Date.now() - _panStartTime) / _PAN_DURATION);
@@ -2309,7 +2318,7 @@ function loop() {
     return;
   }
 
-  update();
+  update(deltaTime);
   updateFade();
   updateEndSequence();
   if (scene === 'stairs') {
