@@ -621,7 +621,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (_shelfOpen && _shelfBookIdx < 0) {
     // 书单选择阶段（4本书 + 关闭 = 5个选项）
-    const optsCount = BOOKS.length + 1;
+    const optsCount = getBooks().length + 1;
     if (e.code === 'ArrowUp') {
       _shelfBookSelected = (_shelfBookSelected - 1 + optsCount) % optsCount;
       e.preventDefault(); return;
@@ -631,7 +631,7 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault(); return;
     }
     if (e.code === 'Enter' || e.code === 'Space') {
-      if (_shelfBookSelected < BOOKS.length) openBook(_shelfBookSelected);
+      if (_shelfBookSelected < getBooks().length) openBook(_shelfBookSelected);
       else closeShelf(); // 选中关闭
       e.preventDefault(); return;
     }
@@ -1110,7 +1110,7 @@ canvas.addEventListener('click', (e) => {
   if (_shelfOpen && _shelfBookIdx < 0 && window._shelfBtns) {
     const hit = window._shelfBtns.find(b => sx >= b.x && sx <= b.x + b.w && sy >= b.y && sy <= b.y + b.h);
     if (hit) {
-      if (hit.idx < BOOKS.length) openBook(hit.idx); // 点击书名阅读
+      if (hit.idx < getBooks().length) openBook(hit.idx); // 点击书名阅读
       else closeShelf(); // 点击关闭
     }
     return;
@@ -2199,7 +2199,7 @@ function drawBookSelector() {
 }
 
 function drawBookReader() {
-  const book  = BOOKS[_shelfBookIdx];
+  const book  = getBooks()[_shelfBookIdx];
 
   // 只显示当前一行（类似岩田对话，一句一句来）
   const currentLine = book.lines[_shelfRevealIdx];
