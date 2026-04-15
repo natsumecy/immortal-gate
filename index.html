@@ -631,7 +631,6 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault(); return;
     }
     if (e.code === 'Enter' || e.code === 'Space') {
-      console.log('Shelf Enter/Space pressed, _shelfBookSelected:', _shelfBookSelected, 'books length:', getBooks()?.length);
       if (_shelfBookSelected < getBooks().length) openBook(_shelfBookSelected);
       else closeShelf(); // 选中关闭
       e.preventDefault(); return;
@@ -1218,7 +1217,6 @@ function cancelShelfOpen() {
 }
 
 function openBook(idx) {
-  console.log('openBook called with idx:', idx, 'getBooks():', getBooks(), 'books length:', getBooks()?.length);
   _shelfBookIdx    = idx;
   _shelfOpen       = false;  // 书单关闭，进入阅读模式
   _shelfOpenTime   = Date.now();
