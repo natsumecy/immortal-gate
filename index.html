@@ -377,11 +377,11 @@ trainSprite.src = 'assets/sprites/train.png';
 
 // 站台岩田：列车停稳后从车厢走出，缓缓坐到椅子上
 const stairsIwata = {
-  x: stairsBench.x + 30, y: 330,  // 从长椅右侧走来
+  x: stairsBench.x + 40, y: 330,  // 从长椅右侧走来（稍微远一点）
   dir: 'down', frame: 0,
   frameTimer: 0, frameInterval: 14,
   state: 'hidden',
-  target: { x: stairsBench.x + 30, y: stairsBench.y - 10 },  // 目标：长椅右侧座位
+  target: { x: stairsBench.x + 40, y: stairsBench.y - 10 },  // 目标：长椅右侧座位
 };
 
 // ── 对白脚本 ──────────────────────────────────────
@@ -643,7 +643,48 @@ function startBubble(bub, text) {
 
 // 键盘状态
 const keys = {};
+// 彩蛋：经典的 Konami Code
+let _konamiBuffer = '';
+const _konamiCode = 'ArrowUpArrowUpArrowDownArrowDownArrowLeftArrowRightArrowLeftArrowRightba';
+function checkKonami(e) {
+  // 支持方向键和字母
+  let key = e.key;
+  if (key.startsWith('Arrow')) {
+    _konamiBuffer += key;
+  } else if (key === 'b' || key === 'B' || key === 'a' || key === 'A') {
+    _konamiBuffer += key.toLowerCase();
+  } else if (key === 'Enter' && _konamiBuffer === _konamiCode) {
+    // 触发彩蛋：直接进入场景2
+    e.preventDefault();
+    scene = 'stairs';
+    player.x = stairsBench.x - 35;
+    player.y = stairsBench.y - 10;
+    player.dir = 'down';
+    seated = true;
+    seatTime = Date.now() - 5000;
+    trainX = TRAIN_STOP_X;
+    stairsIwata.state = 'sitting';
+    stairsIwata.x = stairsBench.x + 40;
+    stairsIwata.y = stairsBench.y - 10;
+    stairsIwata.dir = 'down';
+    dialogueStarted = false;
+    _konamiBuffer = '';
+    console.log('🎉 Konami Code 触发！直接进入站台场景');
+    return;
+  } else {
+    // 按键错误，重置
+    _konamiBuffer = '';
+    return;
+  }
+  // 保持缓冲区长度
+  if (_konamiBuffer.length > _konamiCode.length) {
+    _konamiBuffer = _konamiBuffer.slice(-_konamiCode.length);
+  }
+}
 document.addEventListener('keydown', (e) => {
+  // 彩蛋检测（任何阶段都可用，包括标题画面）
+  checkKonami(e);
+
   // 标题画面：空格/回车启动
   if (titleState === 'title' && (e.code === 'Space' || e.code === 'Enter')) {
     startTitlePan(); e.preventDefault(); return;
@@ -878,15 +919,15 @@ function processDialogueStep(step) {
 }
 
 function executeDialogueAction(what) {
-  const LEFT_X_P = 630, LEFT_X_I = 715;   // 站台左侧折返点
+  const LEFT_X_P = 770, LEFT_X_I = 850;   // 站台左侧折返点（只有一把椅子，所以不那么靠左）
   const TOP_Y = 25;                         // 长椅正上方 y
-  const DEST_X_P = stairsBench.x - 25;     // 玩家坐长椅左侧
-  const DEST_X_I = stairsBench.x + 30;     // 岩田坐长椅右侧
+  const DEST_X_P = stairsBench.x - 35;     // 玩家坐长椅左侧（稍微远一点）
+  const DEST_X_I = stairsBench.x + 40;     // 岩田坐长椅右侧（稍微远一点）
   const BENCH_Y_P = stairsBench.y - 10;    // 与岩田一样靠近椅子
   const BENCH_Y_I = stairsBench.y - 10;
 
   if (what === 'walk_to_edge') {
-    // 左 → 上 → 右，到达椅子1正上方
+    // 左 → 上 → 右，到达椅子正上方（折返点调整，只有一把椅子所以不需要走那么左）
     dlgMovePhases = [
       { p: { x: LEFT_X_P, y: player.y },      i: { x: LEFT_X_I, y: stairsIwata.y }, speed: 0.65 },
       { p: { x: LEFT_X_P, y: TOP_Y },          i: { x: LEFT_X_I, y: TOP_Y },         speed: 0.65 },
@@ -915,7 +956,7 @@ function executeDialogueAction(what) {
     // 岩田慢慢走回列车（玩家原地不动）
     dlgMovePhases = [
       { p: { x: player.x, y: player.y },
-        i: { x: stairsBench.x + 30, y: 360, hide: true },
+        i: { x: stairsBench.x + 40, y: 360, hide: true },
         speed: 0.45 },  // 岩田依依不舍地上车
     ];
     dlgMovePhaseIdx = 0;
@@ -1859,8 +1900,11 @@ function update(deltaTime) {
       const eased = 1 - (1 - t) * (1 - t);
       trainX = TRAIN_START_X - eased * (TRAIN_START_X - TRAIN_STOP_X);
     }
-    // 对白激活时锁定玩家（移动动作期间例外，由 updateDialogue 控制）
-    if (dialogueActive && !dialogueWaitsMovement) {
+    // 自动行走期间完全由系统控制，禁用键盘输入
+    if (dialogueWaitsMovement) return;
+
+    // 对白激活时锁定玩家
+    if (dialogueActive) {
       player.moving = false;
       player.frame = getIdleFrame(player.dir);
       return;
