@@ -2637,7 +2637,7 @@ function drawTitleOverlay() {
   const hw = ctx.measureText(hint).width;
   ctx.fillText(hint,
     Math.round((canvas.width - hw) / 2),
-    Math.round(canvas.height / 2 + fSize * 0.8));
+    Math.round(canvas.height / 2 + fSize * 2.5));
 
   // 版权信息（稍低位置）
   const copySize = Math.round(10 * zoom);
@@ -2647,7 +2647,7 @@ function drawTitleOverlay() {
   const cw = ctx.measureText(copyText).width;
   ctx.fillText(copyText,
     Math.round((canvas.width - cw) / 2),
-    Math.round(canvas.height / 2 + fSize * 3.5));
+    Math.round(canvas.height / 2 + fSize * 5));
 
   ctx.restore();
 }
