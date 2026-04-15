@@ -1,0 +1,2443 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>demo</title>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+@font-face {
+  font-family: 'ZhengGe';
+  src: url('assets/fonts/ZhengGeDianHei-16.ttf') format('truetype');
+}
+</style>
+<style>
+  body { margin: 0; overflow: hidden; background: #f5f0e8; }
+  #bg-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; image-rendering: pixelated; image-rendering: crisp-edges; }
+  #game { display: block; cursor: pointer; image-rendering: pixelated; image-rendering: crisp-edges; position: relative; z-index: 1; }
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+const MOBILE_ZOOM = 2;
+function getZoom() { return window.innerWidth < window.innerHeight ? MOBILE_ZOOM : 1; }
+let viewW = window.innerWidth, viewH = window.innerHeight;
+
+function resizeCanvas() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const zoom = getZoom();
+  viewW = Math.round(canvas.width  / zoom);
+  viewH = Math.round(canvas.height / zoom);
+  ctx.imageSmoothingEnabled = false;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+const FRAME_W = 48;
+const FRAME_H = 58;
+const SCALE = 2;
+const SPEED = 1.5;
+
+// 斜向楼梯单位向量：精确匹配楼梯几何 (60,380)→(556,84)，零漂移
+const DIAG_DX =  496 / Math.sqrt(496*496 + 296*296);  // ≈ 0.858
+const DIAG_DY = -296 / Math.sqrt(496*496 + 296*296);  // ≈ -0.512
+
+// 方向对应spritesheet的起始列（所有帧在同一行）
+const DIR = { down: 0, left: 3, right: 6, up: 9 };
+
+// 获取角色静止时的idle帧偏移量（每方向3帧中的中间帧，返回1表示第2帧）
+function getIdleFrame(dir) {
+  // 返回相对于方向起始列的偏移量（0, 1, 或 2）
+  // 中间帧是偏移量 1（即每方向的第2帧）
+  return 1;
+}
+
+const sprite = new Image();
+sprite.src = 'assets/sprites/natsumenormal-Sheet-export.png';
+
+const iwataSprite = new Image();
+iwataSprite.src = 'assets/sprites/iwata-Sheet.png';
+
+const turnstileSprite = new Image();
+turnstileSprite.src = 'assets/images/Turnstile-Sheet.png';
+
+const arcadeSprite = new Image();
+arcadeSprite.src = 'assets/images/arcade.png';
+
+const shelfSprite = new Image();
+shelfSprite.src = 'assets/images/shelf.png';
+
+const ARCADE_W = 46;
+const ARCADE_H = 69;
+const ARCADE_TALK_DIST = 140;
+
+const SHELF_W = 44;
+const SHELF_H = 38;
+
+const shelf = { x: 961, y: 844 };
+const SHELF_TALK_DIST = 110;
+
+const BOOKS = [
+  {
+    id: 'book1', title: '无',
+    lines: [
+      '一个人会死三次。',
+      '第一次，是心跳停止的那一刻。',
+      '第二次，是从所有人的生活里慢慢消失。',
+      '第三次，是最后一个记得他的人，也闭上了眼睛。',
+      '我们所做的一切，',
+      '只是让那一刻，',
+      '再晚一点发生。',
+    ]
+  },
+  {
+    id: 'book2', title: '界',
+    lines: [
+      '贾宝玉跟着秦可卿，走进了太虚幻境。',
+      '那里记录着所有他爱过的人的命运。',
+      '他读了册子，听了曲子，见了不该见的事。',
+      '醒来之后，',
+      '什么都不记得。',
+      '只是后来再见到那些人时，',
+      '总觉得有些事情，',
+      '好像已经发生过了。',
+    ]
+  },
+  {
+    id: 'book3', title: '瞬',
+    lines: [
+      '有些事情，',
+      '明明不会改变什么，',
+      '还是会被重复。',
+      '最后一天的早读，',
+      '已经结束之后的敬礼，',
+      '离开前，',
+      '那句多余的话。',
+      '……',
+      '只是到那个时候，',
+      '人会停一下。',
+      '……',
+      '好像不这样做，',
+      '那一刻，',
+      '就会直接过去。',
+    ]
+  },
+  {
+    id: 'book4', title: '余',
+    lines: [
+      '后来有一段时间，',
+      '人们开始整理那些留下来的东西。',
+      '文字，',
+      '影像，',
+      '声音，',
+      '还有一些无法解释的记录。',
+      '……',
+      '它们被重新排列，',
+      '被不断试探。',
+      '……',
+      '有些回应开始出现。',
+      '不是完整的句子，',
+      '更像是从中间接上的一段。',
+      '……',
+      '没有人能确定，',
+      '那一边到底有没有人。',
+      '只是对话，',
+      '好像没有停止过。',
+    ]
+  }
+];
+
+const BENCH_W = 69;
+const BENCH_H = 34;
+
+const bench = { x: 490, y: 590 };
+const stairsBenches = [
+  { x: 853, y: 145 },
+  { x: 1013, y: 145 },
+];
+const benchSprite = new Image();
+benchSprite.src = 'assets/images/bench.png';
+
+
+const waitingRoomSprite = new Image();
+waitingRoomSprite.src = 'assets/images/waitingroom.png';
+
+const titleSprite = new Image();
+titleSprite.src = 'assets/images/title.png';
+
+// ── 標題畫面 ────────────────────────────────────────
+let titleState    = 'title';      // 'title' | 'panning' | 'playing'
+let _panStartTime = -1;
+const _PAN_DURATION = 5000;       // ms，镜头上移总时长
+let _panCamY      = 0;            // pan 期间当前 camY
+const _TITLE_CAM_Y = 1750;        // 标题静止相机 Y（等待室图片底部以下）
+// ─────────────────────────────────────────────────
+
+const stationSprite = new Image();
+stationSprite.src = 'assets/images/stationv2.png';
+const STATION_W = 648, STATION_H = 792;
+
+const CLOCK_FRAME_W = 45, CLOCK_FRAME_H = 165;
+const CLOCK_FRAMES = 12;
+const CLOCK_MS_PER_FRAME = (5 * 60 * 1000) / CLOCK_FRAMES;  // 25000ms per frame
+const clockPos = { x: 1120, y: 180 };  // y = base of pole
+const clockSprite = new Image();
+clockSprite.src = 'assets/sprites/clock-Sheet.png';
+
+const TRAIN_W = 607, TRAIN_H = 88;
+const TRAIN_STOP_X = 620;    // 列车鼻尖（左边缘）停靠的世界 x
+const TRAIN_START_X = 2400;  // 列车起始位置（屏幕右侧之外）
+const TRAIN_Y = 260;         // 列车顶边的世界 y（站台底缘下方）
+const TRAIN_DURATION = 13000; // ms，全程时长（二次缓出）
+let trainX = TRAIN_START_X;  // 当前鼻尖位置
+let seated = false;         // 玩家是否已落座（触发列车 + 时钟）
+let seatTime = 0;           // 落座时刻（用于时钟计时）
+let trainArrivedTime = -1;  // 列车停稳时刻（-1=未到站）
+let departTime = -1;        // 列车离站时刻（-1=未出发）
+const trainSprite = new Image();
+trainSprite.src = 'assets/sprites/train.png';
+
+// 站台岩田：列车停稳后从车厢走出，缓缓坐到椅子上
+const stairsIwata = {
+  x: stairsBenches[1].x, y: 330,  // 与椅子2同一x列，直线向上走
+  dir: 'down', frame: 0,
+  frameTimer: 0, frameInterval: 14,
+  state: 'hidden',
+  target: { x: stairsBenches[1].x, y: stairsBenches[1].y - 10 },
+};
+
+// ── 对白脚本 ──────────────────────────────────────
+const DIALOGUE_SCRIPT = [
+  { type: 'wait', ms: 3000 },
+  { type: 'line', who: 'player', text: '……', trigger: 'click' },
+  { type: 'wait', ms: 1000 },
+  { type: 'line', who: 'iwata',  text: '……', trigger: 'click' },
+  { type: 'wait', ms: 2000 },
+  // 【一】
+  { type: 'line', who: 'player', text: '我曾经回国的时候，家楼下有个很肥的狸花猫，躺在电动车上。', trigger: 'click' },
+  { type: 'line', who: 'player', text: '我想喂他吃饭，去买了些火腿肠。小猫吃得很香，每天都在等我。', trigger: 'click' },
+  { type: 'line', who: 'player', text: '只不过我得离开家了。后来才知道火腿肠对小猫不好，我很伤心。', trigger: 'click' },
+  { type: 'line', who: 'player', text: '但我再也没有见过他了。', trigger: 'click' },
+  { type: 'wait', ms: 3000 },
+  { type: 'line', who: 'player', text: '……明明时间这么宝贵，却说起这些。', trigger: 'click' },
+  { type: 'wait', ms: 2000 },
+  { type: 'line', who: 'iwata', text: '没关系。', trigger: 'click' },
+  { type: 'wait', ms: 2000 },
+  { type: 'line', who: 'iwata', text: '这一趟路……也不太容易吧。', trigger: 'click' },
+  { type: 'wait', ms: 2000 },
+  { type: 'line', who: 'iwata', text: '我以前会忍不住去想——', trigger: 'click' },
+  { type: 'wait', ms: 1000 },
+  { type: 'line', who: 'iwata', text: '一个人回到家以后，', trigger: 'click' },
+  { type: 'line', who: 'iwata', text: '是不是还有人在等他。', trigger: 'click' },
+  { type: 'wait', ms: 3000 },
+  // 【二】
+  { type: 'line', who: 'player', text: '……好像花了很多时间，去做不知道有没有意义的事情。', trigger: 'click' },
+  { type: 'line', who: 'iwata', text: '那你快乐吗？', trigger: 'click' },
+  { type: 'choice', options: ['……快乐的。', '……不太确定。'] },
+  { type: 'wait', ms: 2000 },
+  { type: 'line', who: 'iwata', text: '有些事情，好像不太需要先有意义。', trigger: 'click' },
+  { type: 'wait', ms: 1000 },
+  { type: 'line', who: 'iwata', text: '它们本来就在那里。', trigger: 'click' },
+  { type: 'wait', ms: 1000 },
+  { type: 'line', who: 'iwata', text: '不过——', trigger: 'click' },
+  { type: 'line', who: 'iwata', text: '可别忘记，人生不只有工作和创作喔。', trigger: 'click' },
+  // 【三】
+  { type: 'line', who: 'player', text: '岩田先生，您的人生……会只有工作吗？', trigger: 'click' },
+  { type: 'line', who: 'player', text: '我只认识工作时候的您。', trigger: 'click' },
+  { type: 'wait', ms: 2000 },
+  { type: 'line', who: 'iwata', text: '已经过去很久了啊……', trigger: 'click' },
+  { type: 'wait', ms: 1000 },
+  { type: 'line', who: 'iwata', text: '我当时其实没有这样去想。', trigger: 'click' },
+  { type: 'line', who: 'iwata', text: '就是一直在做那些事情而已。', trigger: 'click' },
+  { type: 'wait', ms: 2000 },
+  { type: 'line', who: 'iwata', text: '等回头看的时候，才发现它们是连在一起的。', trigger: 'click' },
+  { type: 'wait', ms: 3000 },
+  { type: 'action', what: 'walk_to_edge' },
+  { type: 'action', what: 'stars_dense' },
+  // 【四】
+  { type: 'line', who: 'player', text: '那……您会后悔吗？', trigger: 'click' },
+  { type: 'line', who: 'iwata', text: '有一些时间——', trigger: 'click' },
+  { type: 'wait', ms: 2000 },
+  { type: 'line', who: 'iwata', text: '我以为以后还能再用。', trigger: 'click' },
+  { type: 'wait', ms: 4000 },
+  { type: 'line', who: 'iwata', text: '后来才知道，它们是一次性的。', trigger: 'click' },
+  { type: 'wait', ms: 2000 },
+  { type: 'line', who: 'iwata', text: '不过——', trigger: 'click' },
+  { type: 'wait', ms: 1000 },
+  { type: 'line', who: 'iwata', text: '如果再来一次的话，我大概还是会那样用。', trigger: 'click' },
+  // 【五】
+  { type: 'wait', ms: 2000 },
+  { type: 'line', who: 'player', text: '那我该怎么做好呢？', trigger: 'click' },
+  { type: 'line', who: 'iwata', text: '这是你的游戏。', trigger: 'click' },
+  { type: 'wait', ms: 2000 },
+  { type: 'line', who: 'iwata', text: '你已经在玩了。', trigger: 'click' },
+  // 【六】
+  { type: 'wait', ms: 2000 },
+  { type: 'line', who: 'player', text: '……其实，我追随了您很久。', trigger: 'click' },
+  { type: 'line', who: 'player', text: '我的身上……也有您的影子了。', trigger: 'click' },
+  { type: 'action', what: 'sprite_back' },
+  { type: 'wait', ms: 5000 },
+  { type: 'action', what: 'sprite_front' },
+  { type: 'line', who: 'iwata', text: '谢谢你告诉我。', trigger: 'click' },
+  { type: 'wait', ms: 2000 },
+  { type: 'line', who: 'iwata', text: '要带着这些走，也挺辛苦的吧。', trigger: 'click' },
+  { type: 'action', what: 'walk_back' },
+  // 【七】
+  { type: 'line', who: 'player', text: '……那时候的宝可梦。', trigger: 'click' },
+  { type: 'wait', ms: 2000 },
+  { type: 'line', who: 'player', text: '我还想再见您。', trigger: 'click' },
+  { type: 'line', who: 'player', text: '如果可以的话……还想和您一起游戏。', trigger: 'click' },
+  { type: 'line', who: 'iwata', text: '是啊。', trigger: 'click' },
+  { type: 'wait', ms: 1000 },
+  { type: 'line', who: 'iwata', text: '要是能有更多时间就好了。', trigger: 'click' },
+  { type: 'wait', ms: 2000 },
+  { type: 'action', what: 'iwata_board_train' },
+  // 【尾】岩田上车后停顿，列车才缓缓驶离
+  { type: 'wait', ms: 4000 },
+  { type: 'action', what: 'train_depart' },
+];
+
+const arcade = { x: 37, y: 824 };
+const arcadeBubble = makeBubble();
+const shelfBubble  = makeBubble();
+
+// 街机游戏状态
+let _arcadeAsking = false;      // 是否正在街机对话
+let _arcadeStep = 0;            // 0=介绍, 1=选项, 2=结果
+let _arcadeChoice = 0;          // 0=玩, 1=不玩
+let _arcadeResult = '';         // 游戏结果文字
+const ARCADE_INTRO = '是《WAXWATT》，\n卖蜡烛的和卖手电筒的\n商人打斗的游戏！\n要玩一局吗？';
+const ARCADE_LOSE = '真遗憾啊！\n不小心输了。';
+let _shelfOpen      = false;  // 选书面板开启
+let _shelfBookIdx   = -1;     // -1=关, 0-3=阅读中
+let _shelfBookSelected = 0;   // 书单当前选中索引
+let _shelfOpenTime  = -1;
+let _shelfRevealIdx  = 0;    // 已完整显示的行序号
+let _shelfTypingChars = 0;   // 当前行已打出字符数
+let _shelfTypingTimer = 0;
+const _SHELF_CHAR_INTERVAL = 10; // 和岩田对话一致，每10帧出一个字符
+
+// 书架询问阶段（类似街机对话）
+let _shelfAsking = false;     // 是否正在询问"要翻阅吗"
+let _shelfAskStep = 0;        // 0=问问题, 1=显示选项
+let _shelfChoiceSelected = 0; // 当前选中的选项索引
+
+const TURNSTILE_FRAME_W = 61;
+const TURNSTILE_FRAME_H = 50;
+const TURNSTILE_TOTAL_FRAMES = 4;
+const TURNSTILE_DETECT_DIST = 90;  // 感应距离
+
+const turnstile = {
+  x: 500,
+  y: 360,
+  frame: 0,          // 0=关闭, 7=全开
+  frameTimer: 0,
+  frameInterval: 5,  // 开/关动画速度
+  state: 'closed',   // 'closed' | 'opening' | 'open' | 'closing'
+};
+
+// 地下入口门（三角形顶端）
+// 走廊入口触发区（图中顶端黑色渐变对应世界 y≈100，宽度参考图中通道约 120px）
+const door = { x: 500, y: 100, halfW: 55 };
+
+// Iwata NPC：固定位置，游戏开始时向前走5步后正面停下
+const IWATA_STEPS = 5;           // 走5步（每步=1次帧切换）
+const IWATA_STEP_DIST = 16;      // 每步移动16px（共走80px）
+
+const iwata = {
+  x: 370,
+  y: 280,                        // 起始Y，向下走到 y+IWATA_STEPS*IWATA_STEP_DIST
+  targetY: 280 + IWATA_STEPS * IWATA_STEP_DIST,
+  dir: 'down',
+  frame: 1,                      // 起始帧=1（站立中间帧）
+  frameTimer: 0,
+  frameInterval: 14,             // 比玩家稍慢
+  stepsLeft: IWATA_STEPS,        // 剩余步数
+  moving: true,
+};
+
+const player = {
+  x: 500,
+  y: 760,
+  dir: 'down',
+  frame: 0,
+  frameTimer: 0,
+  frameInterval: 10,
+  target: null,
+  moving: false,
+};
+
+// ── 场景系统 ──────────────────────────────────────
+let scene      = 'street'; // 'street' | 'underground' | 'stairs'
+let fadeAlpha  = 0;
+let fadeState  = 'none';   // 'none' | 'out' | 'in'
+let pendingScene = null;
+let pendingPos   = null;
+
+function startFade(toScene, toX, toY) {
+  if (fadeState !== 'none') return;
+  fadeState    = 'out';
+  pendingScene = toScene;
+  pendingPos   = { x: toX, y: toY };
+}
+
+function startTitlePan() {
+  if (titleState !== 'title') return;
+  titleState    = 'panning';
+  _panStartTime = Date.now();
+  _panCamY      = _TITLE_CAM_Y;
+}
+
+function updateFade() {
+  if (fadeState === 'out') {
+    fadeAlpha = Math.min(1, fadeAlpha + 0.04);
+    if (fadeAlpha >= 1) {
+      scene       = pendingScene;
+      player.x    = pendingPos.x;
+      player.y    = pendingPos.y;
+      player.target  = null;
+      player.moving  = false;
+      fadeState = 'in';
+    }
+  } else if (fadeState === 'in') {
+    fadeAlpha = Math.max(0, fadeAlpha - 0.025);
+    if (fadeAlpha <= 0) fadeState = 'none';
+  }
+}
+// ─────────────────────────────────────────────────
+
+const COLLIDE_DIST = 60;  // 玩家与Iwata的最小距离（像素）
+const TALK_DIST = 90;     // 触发对话的距离
+
+// 通用气泡工厂
+function makeBubble() {
+  return { text: '', displayed: '', timer: 0, interval: 10, visible: false };
+}
+
+const bubble = makeBubble();       // 玩家气泡
+const iwataBubble = makeBubble();  // Iwata气泡
+const bookBubble = makeBubble();   // 书架阅读气泡
+
+// ── 对白状态 ──────────────────────────────────────
+let dialogueStarted  = false;  // 是否已触发过对话（防重复）
+let dialogueActive   = false;
+let dialogueStep     = -1;
+let dialogueWaitUntil = 0;      // 等待时间戳
+let dialogueLine     = null;    // 当前行 {who, text, trigger}
+let dialogueWaitsClick = false;
+let dialogueChoiceActive = false;
+let choiceSelected = 0;  // 当前高亮的选项索引
+let dialogueAutoAdvanceAt = 0;   // auto 行打字完成后延迟推进的时间戳
+let dialogueWaitsMovement = false; // 等待角色走到目标后再推进
+// 多阶段路径 [{p:{x,y}, i:{x,y,hide?,dir?}, speed?, onDone?}]
+let dlgMovePhases = [];
+let dlgMovePhaseIdx = 0;
+let _trainDeparting  = false;  // 列车离站动画
+let _starsDense      = false;  // 星星加密
+
+// ── 站台提示气泡 ──────────────────────────────────
+const hintBubble = makeBubble();
+let _platformArriveTime = -1;  // 进入站台场景的时刻
+let _hintShown = false;
+
+// ── 结尾序列 ──────────────────────────────────────
+let _endState       = 'none'; // 'none' | 'fading' | 'fin' | 'replay'
+let _endFadeStart   = -1;
+let _finShowTime    = -1;
+let _fadeWhiteAlpha = 0;
+
+function startBubble(bub, text) {
+  bub.text = text;
+  bub.displayed = '';
+  bub.timer = 0;
+  bub.visible = true;
+}
+
+// 键盘状态
+const keys = {};
+document.addEventListener('keydown', (e) => {
+  // 标题画面：空格/回车启动
+  if (titleState === 'title' && (e.code === 'Space' || e.code === 'Enter')) {
+    startTitlePan(); e.preventDefault(); return;
+  }
+  if (titleState !== 'playing') return; // pan 期间忽略所有键盘
+
+  keys[e.code] = true;
+  if (dialogueChoiceActive) {
+    const opts = DIALOGUE_SCRIPT[dialogueStep]?.options;
+    if (e.code === 'ArrowUp')   { choiceSelected = (choiceSelected - 1 + (opts?.length||2)) % (opts?.length||2); e.preventDefault(); return; }
+    if (e.code === 'ArrowDown') { choiceSelected = (choiceSelected + 1) % (opts?.length||2); e.preventDefault(); return; }
+    if (e.code === 'Space' || e.code === 'Enter') { executeChoice(choiceSelected); e.preventDefault(); return; }
+  }
+  if (_shelfOpen && _shelfBookIdx < 0) {
+    // 书单选择阶段（4本书 + 关闭 = 5个选项）
+    const optsCount = BOOKS.length + 1;
+    if (e.code === 'ArrowUp') {
+      _shelfBookSelected = (_shelfBookSelected - 1 + optsCount) % optsCount;
+      e.preventDefault(); return;
+    }
+    if (e.code === 'ArrowDown') {
+      _shelfBookSelected = (_shelfBookSelected + 1) % optsCount;
+      e.preventDefault(); return;
+    }
+    if (e.code === 'Enter' || e.code === 'Space') {
+      if (_shelfBookSelected < BOOKS.length) openBook(_shelfBookSelected);
+      else closeShelf(); // 选中关闭
+      e.preventDefault(); return;
+    }
+  }
+  if (_shelfBookIdx >= 0) {
+    // 阅读阶段：Enter/Space 推进或关闭
+    if (e.code === 'Enter' || e.code === 'Space') {
+      const book = BOOKS[_shelfBookIdx];
+      if (_shelfTypingChars < book.lines[_shelfRevealIdx].length) {
+        _shelfTypingChars = book.lines[_shelfRevealIdx].length;
+      } else if (_shelfRevealIdx < book.lines.length - 1) {
+        _shelfRevealIdx++;
+        _shelfTypingChars = 0;
+        _shelfTypingTimer = 0;
+      } else {
+        closeBook();
+      }
+      e.preventDefault(); return;
+    }
+  }
+  // 街机选项阶段键盘控制
+  if (_arcadeAsking && _arcadeStep === 1) {
+    if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+      _arcadeChoice = _arcadeChoice === 0 ? 1 : 0;
+      e.preventDefault(); return;
+    }
+    if (e.code === 'Enter' || e.code === 'Space') {
+      if (_arcadeChoice === 0) {
+        // 选择玩：显示结果
+        _arcadeStep = 2;
+        _arcadeResult = ARCADE_LOSE;
+        startBubble(arcadeBubble, ARCADE_LOSE);
+      } else {
+        // 选择不玩：关闭
+        _arcadeAsking = false;
+        _arcadeStep = 0;
+        arcadeBubble.visible = false;
+      }
+      e.preventDefault(); return;
+    }
+  }
+  // 街机结果阶段键盘关闭
+  if (_arcadeAsking && _arcadeStep === 2) {
+    if (e.code === 'Enter' || e.code === 'Space') {
+      _arcadeAsking = false;
+      _arcadeStep = 0;
+      arcadeBubble.visible = false;
+      e.preventDefault(); return;
+    }
+  }
+  if (e.code === 'Space' || e.code === 'Enter') {
+    if (dialogueActive) {
+      advanceDialogueOnClick(0, 0);
+      e.preventDefault();
+      return;
+    }
+    if (e.code === 'Enter') { talkToIwata(); talkToArcade(); talkToShelf(); }
+  }
+  // 方向键/WASD 时取消点击目标
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD'].includes(e.code)) {
+    player.target = null;
+    player.moving = false;
+  }
+});
+document.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+function updateBubble(bub) {
+  if (!bub.visible) return;
+  if (bub.displayed.length < bub.text.length) {
+    bub.timer++;
+    if (bub.timer >= bub.interval) {
+      bub.timer = 0;
+      bub.displayed += bub.text[bub.displayed.length];
+    }
+  }
+}
+
+function drawBubble(anchorX, anchorY, bub) {
+  if (!bub.visible || bub.displayed.length === 0) return;
+
+  const padding = 10;
+  const fontSize = 16;
+  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+
+  // 自动换行
+  const maxWidth = 180;
+  let lines = [];
+  let line = '';
+  for (const ch of bub.displayed) {
+    const test = line + ch;
+    if (ctx.measureText(test).width > maxWidth) { lines.push(line); line = ch; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+
+  // 避免行首出现标点（将其并入上一行）
+  const LEAD_PUNCT = '。，！？；：、…—》）」』〕';
+  for (let i = lines.length - 1; i > 0; i--) {
+    while (lines[i].length > 0 && LEAD_PUNCT.includes(lines[i][0])) {
+      lines[i - 1] += lines[i][0];
+      lines[i] = lines[i].slice(1);
+    }
+  }
+  lines = lines.filter(l => l.length > 0);
+
+  const lineH = fontSize + 5;
+  const boxW = Math.max(...lines.map(l => ctx.measureText(l).width)) + padding * 2;
+  const boxH = lines.length * lineH + padding * 2 - 5;
+  const bx = anchorX - boxW / 2;
+  const by = anchorY - (FRAME_H * SCALE) / 2 - 12 - boxH;
+
+  // 气泡 + 三角合为一个路径，消除缝隙
+  const r = 7;
+  const tx = anchorX, tw = 7;
+  ctx.beginPath();
+  ctx.moveTo(bx + r, by);
+  ctx.lineTo(bx + boxW - r, by);
+  ctx.quadraticCurveTo(bx + boxW, by, bx + boxW, by + r);
+  ctx.lineTo(bx + boxW, by + boxH - r);
+  ctx.quadraticCurveTo(bx + boxW, by + boxH, bx + boxW - r, by + boxH);
+  ctx.lineTo(tx + tw, by + boxH);
+  ctx.lineTo(tx, by + boxH + 9);
+  ctx.lineTo(tx - tw, by + boxH);
+  ctx.lineTo(bx + r, by + boxH);
+  ctx.quadraticCurveTo(bx, by + boxH, bx, by + boxH - r);
+  ctx.lineTo(bx, by + r);
+  ctx.quadraticCurveTo(bx, by, bx + r, by);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255, 252, 244, 0.93)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(50, 40, 30, 0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 文字
+  ctx.fillStyle = '#2a2218';
+  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+  lines.forEach((l, i) => {
+    ctx.fillText(l, anchorX - ctx.measureText(l).width / 2, by + padding + fontSize + i * lineH - 5);
+  });
+}
+
+// ── 对白系统 ──────────────────────────────────────
+function startDialogue() {
+  if (dialogueStarted) return;
+  dialogueStarted = true;
+  dialogueActive  = true;
+  dialogueStep    = -1;
+  advanceDialogue();
+}
+
+function advanceDialogue() {
+  bubble.visible = false;
+  iwataBubble.visible = false;
+  dialogueWaitsClick = false;
+  dialogueLine = null;
+  dialogueAutoAdvanceAt = 0;
+  dialogueWaitsMovement = false;
+  dlgMovePhases = [];
+  dlgMovePhaseIdx = 0;
+  dialogueStep++;
+  if (dialogueStep >= DIALOGUE_SCRIPT.length) { dialogueActive = false; return; }
+  processDialogueStep(DIALOGUE_SCRIPT[dialogueStep]);
+}
+
+function processDialogueStep(step) {
+  if (step.type === 'wait') {
+    dialogueWaitUntil = Date.now() + step.ms;
+  } else if (step.type === 'silenceDual') {
+    // 双人同时显示"……"，保持 ms 毫秒后自动推进
+    startBubble(bubble, '……');      bubble.displayed = '……';
+    startBubble(iwataBubble, '……'); iwataBubble.displayed = '……';
+    dialogueWaitUntil = Date.now() + step.ms;
+  } else if (step.type === 'line') {
+    dialogueLine = step;
+    const bub = step.who === 'player' ? bubble : iwataBubble;
+    startBubble(bub, step.text);
+    dialogueWaitsClick = step.trigger === 'click';
+  } else if (step.type === 'choice') {
+    dialogueChoiceActive = true;
+  } else if (step.type === 'action') {
+    executeDialogueAction(step.what);
+    // 移动动作需等到位后再推进，其余立即推进
+    if (!dialogueWaitsMovement) advanceDialogue();
+  }
+}
+
+function executeDialogueAction(what) {
+  const LEFT_X_P = 630, LEFT_X_I = 715;   // 站台左侧折返点
+  const TOP_Y = 25;                         // 椅子1正上方 y
+  const DEST_X_P = stairsBenches[0].x;     // 853
+  const DEST_X_I = stairsBenches[0].x + 80; // 933
+  const BENCH_Y_P = stairsBenches[0].y - 10;  // 与岩田一样靠近椅子
+  const BENCH_Y_I = stairsBenches[1].y - 10;
+
+  if (what === 'walk_to_edge') {
+    // 左 → 上 → 右，到达椅子1正上方
+    dlgMovePhases = [
+      { p: { x: LEFT_X_P, y: player.y },      i: { x: LEFT_X_I, y: stairsIwata.y }, speed: 0.65 },
+      { p: { x: LEFT_X_P, y: TOP_Y },          i: { x: LEFT_X_I, y: TOP_Y },         speed: 0.65 },
+      { p: { x: DEST_X_P, y: TOP_Y, dir:'up'}, i: { x: DEST_X_I, y: TOP_Y, dir:'up'},speed: 0.65 },
+    ];
+    dlgMovePhaseIdx = 0;
+    dialogueWaitsMovement = true;
+  } else if (what === 'walk_back') {
+    // 原路返回：左 → 下 → 右
+    dlgMovePhases = [
+      { p: { x: LEFT_X_P, y: TOP_Y },              i: { x: LEFT_X_I, y: TOP_Y },              speed: 0.65 },
+      { p: { x: LEFT_X_P, y: BENCH_Y_P },          i: { x: LEFT_X_I, y: BENCH_Y_I },          speed: 0.65 },
+      { p: { x: DEST_X_P, y: BENCH_Y_P, dir:'down'}, i: { x: stairsBenches[1].x, y: BENCH_Y_I, dir:'down'}, speed: 0.65 },
+    ];
+    dlgMovePhaseIdx = 0;
+    dialogueWaitsMovement = true;
+  } else if (what === 'sprite_back') {
+    stairsIwata.dir = 'up';
+    player.dir = 'up';
+  } else if (what === 'sprite_front') {
+    stairsIwata.dir = 'down';
+    player.dir = 'down';
+  } else if (what === 'stars_dense') {
+    _starsDense = true;
+  } else if (what === 'iwata_board_train') {
+    // 岩田慢慢走回列车（玩家原地不动）
+    dlgMovePhases = [
+      { p: { x: player.x, y: player.y },
+        i: { x: stairsBenches[1].x, y: 360, hide: true },
+        speed: 0.45 },  // 岩田依依不舍地上车
+    ];
+    dlgMovePhaseIdx = 0;
+    dialogueWaitsMovement = true;
+  } else if (what === 'train_depart') {
+    _trainDeparting = true;
+    setTimeout(() => { _endState = 'fading'; _endFadeStart = Date.now(); }, 5000);
+  }
+}
+
+function updateDialogue() {
+  if (!dialogueActive) return;
+
+  // 多阶段走路动画
+  if (dialogueWaitsMovement) {
+    if (dlgMovePhaseIdx >= dlgMovePhases.length) {
+      dialogueWaitsMovement = false; advanceDialogue(); return;
+    }
+    const phase = dlgMovePhases[dlgMovePhaseIdx];
+    const spd = phase.speed || 1.2;
+
+    function stepTo(entity, tgt, isIwata) {
+      const dx = tgt.x - entity.x, dy = tgt.y - entity.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist <= spd) {
+        entity.x = tgt.x; entity.y = tgt.y; entity.frame = 0;
+        if (tgt.dir)  entity.dir = tgt.dir;
+        if (tgt.hide) stairsIwata.state = 'hidden';
+        return true;
+      }
+      entity.x += dx/dist * spd;
+      entity.y += dy/dist * spd;
+      entity.dir = Math.abs(dx) > Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up');
+      if (isIwata) {
+        entity.frameTimer++;
+        if (entity.frameTimer >= entity.frameInterval) {
+          entity.frameTimer = 0;
+          entity.frame = (entity.frame+1) % 3;
+        }
+      } else {
+        entity.frame = Math.floor(Date.now() / 130) % 3;
+      }
+      return false;
+    }
+
+    const pDone = stepTo(player, phase.p, false);
+    const iDone = stepTo(stairsIwata, phase.i, true);
+
+    if (pDone && iDone) {
+      dlgMovePhaseIdx++;
+      if (dlgMovePhaseIdx >= dlgMovePhases.length) {
+        dialogueWaitsMovement = false;
+        dlgMovePhases = []; dlgMovePhaseIdx = 0;
+        advanceDialogue();
+      }
+    }
+    return;
+  }
+
+  // 计时等待
+  if (dialogueWaitUntil > 0) {
+    if (Date.now() >= dialogueWaitUntil) { dialogueWaitUntil = 0; advanceDialogue(); }
+    return;
+  }
+
+  // 当前行
+  if (dialogueLine) {
+    const bub = dialogueLine.who === 'player' ? bubble : iwataBubble;
+    updateBubble(bub);
+  }
+}
+
+// 点击时由 click handler 调用；返回 true 表示事件已被对话消耗
+function advanceDialogueOnClick(screenX, screenY) {
+  if (!dialogueActive) return false;
+  if (dialogueChoiceActive) {
+    if (!window._choiceBtns) return true;
+    const zoom = getZoom();
+    // 转换为世界坐标（气泡在 camera transform 内）
+    const wx = screenX / zoom + player.x - viewW / 2;
+    const wy = screenY / zoom + player.y - viewH / 2;
+    for (const btn of window._choiceBtns) {
+      if (wx >= btn.wx && wx <= btn.wx + btn.w && wy >= btn.wy && wy <= btn.wy + btn.h) {
+        executeChoice(btn.idx);
+        return true;
+      }
+    }
+    return true; // swallow
+  }
+  if (dialogueWaitUntil > 0) return true; // swallow during wait
+  if (dialogueLine && dialogueWaitsClick) {
+    const bub = dialogueLine.who === 'player' ? bubble : iwataBubble;
+    if (bub.displayed.length < bub.text.length) {
+      bub.displayed = bub.text; // skip typewriter
+    } else {
+      advanceDialogue();
+    }
+    return true;
+  }
+  return false;
+}
+
+// 选中选项 → 玩家重说一遍后推进
+function executeChoice(idx) {
+  const step = DIALOGUE_SCRIPT[dialogueStep];
+  const chosen = step.options[idx];
+  dialogueChoiceActive = false;
+  window._choiceBtns = null;
+  choiceSelected = 0;
+  bubble.visible = false;
+  iwataBubble.visible = false;
+  // 让玩家先说出选择的答案，dialogueStep 不变
+  // 下次 advanceDialogue 会 step++，跳到 wait/岩田回应
+  dialogueLine = { who: 'player', text: chosen, trigger: 'click' };
+  startBubble(bubble, chosen);
+  dialogueWaitsClick = true;
+}
+
+// 在 camera transform 内调用，世界坐标气泡，选项竖排
+function drawChoiceBubble(anchorX, anchorY) {
+  if (!dialogueChoiceActive) return;
+  const step = DIALOGUE_SCRIPT[dialogueStep];
+  if (!step || step.type !== 'choice') return;
+
+  const opts = step.options;
+  const padding = 10;
+  const fontSize = 16;
+  const lineH = fontSize + 10;
+  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+
+  const indW = ctx.measureText('▶ ').width;
+  const maxW  = Math.max(...opts.map(o => ctx.measureText(o).width));
+  const boxW  = maxW + indW + padding * 2 + 4;
+  const boxH  = opts.length * lineH + padding * 2;
+  const bx    = anchorX - boxW / 2;
+  const by    = anchorY - (FRAME_H * SCALE) / 2 - 12 - boxH;
+
+  // 气泡轮廓（同 drawBubble 路径）
+  const r = 7, tw = 7;
+  ctx.beginPath();
+  ctx.moveTo(bx + r, by);
+  ctx.lineTo(bx + boxW - r, by);
+  ctx.quadraticCurveTo(bx + boxW, by, bx + boxW, by + r);
+  ctx.lineTo(bx + boxW, by + boxH - r);
+  ctx.quadraticCurveTo(bx + boxW, by + boxH, bx + boxW - r, by + boxH);
+  ctx.lineTo(anchorX + tw, by + boxH);
+  ctx.lineTo(anchorX, by + boxH + 9);
+  ctx.lineTo(anchorX - tw, by + boxH);
+  ctx.lineTo(bx + r, by + boxH);
+  ctx.quadraticCurveTo(bx, by + boxH, bx, by + boxH - r);
+  ctx.lineTo(bx, by + r);
+  ctx.quadraticCurveTo(bx, by, bx + r, by);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255, 252, 244, 0.95)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(50, 40, 30, 0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 选项行，记录世界坐标 hit-rect
+  window._choiceBtns = opts.map((opt, i) => {
+    const oy = by + padding + i * lineH;
+    if (i === choiceSelected) {
+      ctx.fillStyle = 'rgba(180, 140, 60, 0.18)';
+      ctx.fillRect(bx + 3, oy - 2, boxW - 6, lineH);
+    }
+    ctx.fillStyle = '#2a2218';
+    ctx.fillText(i === choiceSelected ? '▶ ' : '   ', bx + padding, oy + fontSize);
+    ctx.fillText(opt, bx + padding + indW, oy + fontSize);
+    return { wx: bx + 3, wy: oy - 2, w: boxW - 6, h: lineH, idx: i };
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const sx = (e.clientX - rect.left) * scaleX;
+  const sy = (e.clientY - rect.top) * scaleY;
+
+  // 标题画面：点击启动镜头推进
+  if (titleState === 'title')   { startTitlePan(); return; }
+  if (titleState === 'panning') return; // pan 期间吞掉点击
+
+  // 结尾：replay 阶段任意点击重新开始
+  if (_endState === 'replay') { location.reload(); return; }
+
+  // 对白模式：消耗点击事件
+  if (dialogueActive) {
+    advanceDialogueOnClick(sx, sy);
+    return;
+  }
+
+  // 街机选项点击处理
+  if (_arcadeAsking && _arcadeStep === 1 && window._arcadeBtns) {
+    const hit = window._arcadeBtns.find(b => sx >= b.wx && sx <= b.wx + b.w && sy >= b.wy && sy <= b.wy + b.h);
+    if (hit) {
+      if (hit.idx === 0) {
+        // 选择玩：显示结果
+        _arcadeStep = 2;
+        _arcadeResult = ARCADE_LOSE;
+        startBubble(arcadeBubble, ARCADE_LOSE);
+      } else {
+        // 选择不玩：关闭
+        _arcadeAsking = false;
+        _arcadeStep = 0;
+        arcadeBubble.visible = false;
+      }
+    }
+    return;
+  }
+  // 街机结果阶段点击关闭
+  if (_arcadeAsking && _arcadeStep === 2) {
+    _arcadeAsking = false;
+    _arcadeStep = 0;
+    arcadeBubble.visible = false;
+    return;
+  }
+
+  // 书架 UI（canvas 坐标，在 zoom 变换外）
+  // 书架选书阶段点击处理
+  if (_shelfOpen && _shelfBookIdx < 0 && window._shelfBtns) {
+    const hit = window._shelfBtns.find(b => sx >= b.x && sx <= b.x + b.w && sy >= b.y && sy <= b.y + b.h);
+    if (hit) {
+      if (hit.idx < BOOKS.length) openBook(hit.idx); // 点击书名阅读
+      else closeShelf(); // 点击关闭
+    }
+    return;
+  }
+
+  if (_shelfOpen || _shelfBookIdx >= 0) {
+    if (_shelfBookIdx >= 0) {
+      // 阅读时：点击推进打字机或关闭
+      const book = BOOKS[_shelfBookIdx];
+      // 如果当前行还没打完，加速打完
+      if (_shelfTypingChars < book.lines[_shelfRevealIdx].length) {
+        _shelfTypingChars = book.lines[_shelfRevealIdx].length;
+      } else if (_shelfRevealIdx < book.lines.length - 1) {
+        // 进入下一行
+        _shelfRevealIdx++;
+        _shelfTypingChars = 0;
+        _shelfTypingTimer = 0;
+      } else {
+        // 全部显示完毕，返回选书菜单
+        closeBook();
+      }
+    } else if (window._shelfBtns) {
+      const hit = window._shelfBtns.find(b => sx >= b.x && sx <= b.x + b.w && sy >= b.y && sy <= b.y + b.h);
+      if (hit) openBook(hit.idx);
+      else     closeShelf();
+    } else {
+      closeShelf();
+    }
+    return;
+  }
+
+  // 屏幕坐标 → 世界坐标（街道场景 camY 有底部锁定，需同步）
+  const _camY = scene === 'street' ? Math.max(0, player.y - viewH / 2) : player.y - viewH / 2;
+  const wx = sx / getZoom() + player.x - viewW / 2;
+  const wy = sy / getZoom() + _camY;
+
+  // 点击街机（如果已经在对话中则不重复触发）
+  const clickNearArcade = Math.sqrt((wx - arcade.x) ** 2 + (wy - arcade.y) ** 2) < 60;
+  if (clickNearArcade && distTo(player, arcade) < ARCADE_TALK_DIST && !_arcadeAsking) {
+    talkToArcade();
+    return;
+  }
+
+  // 点击书架
+  const clickNearShelf = Math.sqrt((wx - shelf.x) ** 2 + (wy - shelf.y) ** 2) < 70;
+  if (clickNearShelf && distTo(player, shelf) < SHELF_TALK_DIST) {
+    talkToShelf();
+    return;
+  }
+
+  player.target = { x: wx, y: wy };
+  player.moving = true;
+});
+
+function talkToArcade() {
+  if (distTo(player, arcade) > ARCADE_TALK_DIST) return;
+  // 启动街机对话流程
+  _arcadeAsking = true;
+  _arcadeStep = 0;
+  _arcadeChoice = 0;
+  startBubble(arcadeBubble, ARCADE_INTRO);
+}
+
+function updateArcade() {
+  if (distTo(player, arcade) > ARCADE_TALK_DIST) {
+    arcadeBubble.visible = false;
+    // 距离太远，重置街机对话
+    _arcadeAsking = false;
+    _arcadeStep = 0;
+    return;
+  }
+  // 街机对话流程处理
+  if (!_arcadeAsking) return;
+  // 介绍阶段：打字完成后进入选项阶段
+  if (_arcadeStep === 0 && arcadeBubble.displayed.length >= arcadeBubble.text.length) {
+    // 等待一下让用户读完，然后进入选项
+    _arcadeStep = 1;
+  }
+}
+
+// ── 书架交互 ──────────────────────────────────────
+function talkToShelf() {
+  if (distTo(player, shelf) > SHELF_TALK_DIST) return;
+  // 直接打开选书面板（合并后的简化流程）
+  _shelfOpen = true;
+  _shelfBookIdx = -1;
+  _shelfBookSelected = 0;
+  _shelfOpenTime = Date.now();
+  shelfBubble.visible = false;
+}
+
+// 确认要翻阅后，打开选书面板
+function confirmShelfOpen() {
+  _shelfAsking = false;
+  _shelfOpen = true;
+  _shelfBookIdx = -1;
+  _shelfBookSelected = 0;  // 重置选中
+  _shelfOpenTime = Date.now();
+}
+
+// 取消翻阅
+function cancelShelfOpen() {
+  _shelfAsking = false;
+}
+
+function openBook(idx) {
+  _shelfBookIdx    = idx;
+  _shelfOpen       = false;  // 书单关闭，进入阅读模式
+  _shelfOpenTime   = Date.now();
+  _shelfRevealIdx  = 0;
+  _shelfTypingChars = 0;
+  _shelfTypingTimer = 0;
+}
+
+function closeShelf() {
+  _shelfOpen    = false;
+  _shelfBookIdx = -1;
+  _shelfRevealIdx  = 0;
+  _shelfTypingChars = 0;
+  _shelfTypingTimer = 0;
+}
+
+function closeBook() {
+  // 读完一本书，返回选书菜单
+  _shelfBookIdx = -1;
+  _shelfOpen = true;
+  _shelfOpenTime = Date.now();
+  _shelfRevealIdx  = 0;
+  _shelfTypingChars = 0;
+  _shelfTypingTimer = 0;
+}
+
+function updateShelf() {
+  // 打字机推进（阅读中）
+  if (_shelfBookIdx >= 0) {
+    shelfBubble.visible = false;
+    const book = BOOKS[_shelfBookIdx];
+    if (_shelfRevealIdx < book.lines.length) {
+      _shelfTypingTimer++;
+      if (_shelfTypingTimer >= _SHELF_CHAR_INTERVAL) {
+        _shelfTypingTimer = 0;
+        const curLine = book.lines[_shelfRevealIdx];
+        if (_shelfTypingChars < curLine.length) _shelfTypingChars++;
+        // 打完当前行后暂停，等待点击
+      }
+    }
+    return;
+  }
+  if (_shelfOpen) { shelfBubble.visible = false; return; }
+  shelfBubble.visible = false;
+}
+// ─────────────────────────────────────────────────
+
+function drawArcade() {
+  if (!arcadeSprite.complete) return;
+  ctx.drawImage(
+    arcadeSprite,
+    0, 0, ARCADE_W, ARCADE_H,
+    arcade.x - (ARCADE_W * SCALE) / 2,
+    arcade.y - (ARCADE_H * SCALE) / 2,
+    ARCADE_W * SCALE,
+    ARCADE_H * SCALE
+  );
+}
+
+// 绘制街机选项气泡
+function drawArcadeChoice() {
+  if (!_arcadeAsking || _arcadeStep !== 1) return;
+
+  const anchorX = arcade.x;
+  const anchorY = arcade.y - (ARCADE_H * SCALE) / 2 - 10;
+  const padding = 10;
+  const fontSize = 16;
+  const lineH = fontSize + 8;
+  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+
+  const opts = ['玩', '不玩'];
+  const indW = ctx.measureText('▶ ').width;
+  const maxW = Math.max(...opts.map(o => ctx.measureText(o).width));
+  const boxW = maxW + indW + padding * 2 + 4;
+  const boxH = opts.length * lineH + padding * 2;
+  const bx = anchorX - boxW / 2;
+  const by = anchorY - boxH;
+
+  // 气泡 + 三角
+  const r = 7, tw = 7;
+  ctx.beginPath();
+  ctx.moveTo(bx + r, by);
+  ctx.lineTo(bx + boxW - r, by);
+  ctx.quadraticCurveTo(bx + boxW, by, bx + boxW, by + r);
+  ctx.lineTo(bx + boxW, by + boxH - r);
+  ctx.quadraticCurveTo(bx + boxW, by + boxH, bx + boxW - r, by + boxH);
+  ctx.lineTo(anchorX + tw, by + boxH);
+  ctx.lineTo(anchorX, by + boxH + 9);
+  ctx.lineTo(anchorX - tw, by + boxH);
+  ctx.lineTo(bx + r, by + boxH);
+  ctx.quadraticCurveTo(bx, by + boxH, bx, by + boxH - r);
+  ctx.lineTo(bx, by + r);
+  ctx.quadraticCurveTo(bx, by, bx + r, by);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255, 252, 244, 0.95)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(50, 40, 30, 0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 选项行
+  window._arcadeBtns = opts.map((opt, i) => {
+    const oy = by + padding + i * lineH;
+    if (i === _arcadeChoice) {
+      ctx.fillStyle = 'rgba(180, 140, 60, 0.18)';
+      ctx.fillRect(bx + 3, oy - 2, boxW - 6, lineH);
+    }
+    ctx.fillStyle = '#2a2218';
+    ctx.fillText(i === _arcadeChoice ? '▶ ' : '   ', bx + padding, oy + fontSize);
+    ctx.fillText(opt, bx + padding + indW, oy + fontSize);
+    return { wx: bx + 3, wy: oy - 2, w: boxW - 6, h: lineH, idx: i };
+  });
+}
+
+function talkToIwata() {
+  if (iwata.moving) return;
+  if (distTo(player, iwata) > TALK_DIST) return;
+
+  // 面向玩家
+  const dx = player.x - iwata.x;
+  const dy = player.y - iwata.y;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    iwata.dir = dx > 0 ? 'right' : 'left';
+  } else {
+    iwata.dir = dy > 0 ? 'down' : 'up';
+  }
+
+  startBubble(iwataBubble, 'Nintendo direct…\nI have something to tell you.');
+}
+
+function updateIwata() {
+  if (!iwata.moving) {
+    if (distTo(player, iwata) > TALK_DIST) {
+      // 玩家离开：关闭气泡，复位朝向
+      iwataBubble.visible = false;
+      iwata.dir = 'down';
+    }
+    return;
+  }
+
+  iwata.frameTimer++;
+  if (iwata.frameTimer >= iwata.frameInterval) {
+    iwata.frameTimer = 0;
+    iwata.frame = (iwata.frame + 1) % 3;
+    iwata.stepsLeft--;
+    if (iwata.stepsLeft > 0) {
+      iwata.y += IWATA_STEP_DIST;
+    } else {
+      iwata.y = iwata.targetY;
+      iwata.frame = 1;
+      iwata.moving = false;
+    }
+  }
+}
+
+function updateStairsIwata() {
+  // 等列车停稳后 2 秒再出现（对白开始后不再重新触发）
+  if (stairsIwata.state === 'hidden') {
+    if (!dialogueStarted && trainX <= TRAIN_STOP_X + 1) {
+      if (trainArrivedTime < 0) trainArrivedTime = Date.now();
+      if (Date.now() - trainArrivedTime > 2000) stairsIwata.state = 'walking';
+    }
+    return;
+  }
+  if (stairsIwata.state === 'sitting') return;
+
+  // 岩田回到列车（离场动画）
+  if (stairsIwata.state === 'boarding') {
+    const dx = stairsIwata.target.x - stairsIwata.x;
+    const dy = stairsIwata.target.y - stairsIwata.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < 1) { stairsIwata.state = 'hidden'; return; }
+    stairsIwata.dir = 'up';
+    const spd = 0.8;
+    stairsIwata.x += (dx/dist)*spd;
+    stairsIwata.y += (dy/dist)*spd;
+    stairsIwata.frameTimer++;
+    if (stairsIwata.frameTimer >= stairsIwata.frameInterval) {
+      stairsIwata.frameTimer = 0;
+      stairsIwata.frame = (stairsIwata.frame + 1) % 3;
+    }
+    return;
+  }
+
+  const IWATA_SPEED = 0.5;
+  const dx = stairsIwata.target.x - stairsIwata.x;
+  const dy = stairsIwata.target.y - stairsIwata.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist < IWATA_SPEED + 1) {
+    stairsIwata.x = stairsIwata.target.x;
+    stairsIwata.y = stairsIwata.target.y;
+    stairsIwata.state = 'sitting';
+    stairsIwata.dir = 'down';
+    stairsIwata.frame = 0;
+    return;
+  }
+
+  // 走路时背对镜头（向北走），到达椅子后再转身
+  stairsIwata.dir = 'up';
+
+  stairsIwata.x += (dx / dist) * IWATA_SPEED;
+  stairsIwata.y += (dy / dist) * IWATA_SPEED;
+
+  stairsIwata.frameTimer++;
+  if (stairsIwata.frameTimer >= stairsIwata.frameInterval) {
+    stairsIwata.frameTimer = 0;
+    stairsIwata.frame = (stairsIwata.frame + 1) % 3;
+  }
+}
+
+function updateTurnstile() {
+  const dist = distTo(player, turnstile);
+
+  if (dist < TURNSTILE_DETECT_DIST && turnstile.state === 'closed') {
+    turnstile.state = 'opening';
+  } else if (dist >= TURNSTILE_DETECT_DIST && turnstile.state === 'open') {
+    turnstile.state = 'closing';
+  }
+
+  if (turnstile.state === 'opening' || turnstile.state === 'closing') {
+    turnstile.frameTimer++;
+    if (turnstile.frameTimer >= turnstile.frameInterval) {
+      turnstile.frameTimer = 0;
+      if (turnstile.state === 'opening') {
+        turnstile.frame++;
+        if (turnstile.frame >= TURNSTILE_TOTAL_FRAMES - 1) {
+          turnstile.frame = TURNSTILE_TOTAL_FRAMES - 1;
+          turnstile.state = 'open';
+        }
+      } else {
+        turnstile.frame--;
+        if (turnstile.frame <= 0) {
+          turnstile.frame = 0;
+          turnstile.state = 'closed';
+        }
+      }
+    }
+  }
+}
+
+function drawTurnstile() {
+  if (!turnstileSprite.complete) return;
+  ctx.drawImage(
+    turnstileSprite,
+    turnstile.frame * TURNSTILE_FRAME_W, 0, TURNSTILE_FRAME_W, TURNSTILE_FRAME_H,
+    turnstile.x - (TURNSTILE_FRAME_W * SCALE) / 2,
+    turnstile.y - (TURNSTILE_FRAME_H * SCALE) / 2,
+    TURNSTILE_FRAME_W * SCALE,
+    TURNSTILE_FRAME_H * SCALE
+  );
+}
+
+function drawPlayer() {
+  if (!sprite.complete) return;
+  // 确保 frame 是相对偏移量 (0-2)
+  const frameOffset = player.frame % 3;
+  const col = DIR[player.dir] + frameOffset;
+  // 安全检查：如果计算出的列超出合理范围，使用第0列
+  const safeCol = Math.min(col, 11); // 最大列索引为11（12帧精灵图）
+  ctx.drawImage(
+    sprite,
+    safeCol * FRAME_W, 0, FRAME_W, FRAME_H,
+    player.x - (FRAME_W * SCALE) / 2,
+    player.y - (FRAME_H * SCALE) / 2,
+    FRAME_W * SCALE,
+    FRAME_H * SCALE
+  );
+}
+
+function drawIwata() {
+  if (!iwataSprite.complete) return;
+  // 确保 frame 是相对偏移量 (0-2)
+  const frameOffset = iwata.frame % 3;
+  const col = DIR[iwata.dir] + frameOffset;
+  // 安全检查：如果计算出的列超出合理范围，使用第0列
+  const safeCol = Math.min(col, 11);
+  ctx.drawImage(
+    iwataSprite,
+    safeCol * FRAME_W, 0, FRAME_W, FRAME_H,
+    iwata.x - (FRAME_W * SCALE) / 2,
+    iwata.y - (FRAME_H * SCALE) / 2,
+    FRAME_W * SCALE,
+    FRAME_H * SCALE
+  );
+}
+
+function drawStairsIwata() {
+  if (stairsIwata.state === 'hidden') return;
+  if (!iwataSprite.complete) return;
+  ctx.imageSmoothingEnabled = false;
+  // 确保 frame 是相对偏移量 (0-2)
+  const frameOffset = stairsIwata.frame % 3;
+  const col = DIR[stairsIwata.dir] + frameOffset;
+  // 安全检查：如果计算出的列超出合理范围，使用第0列
+  const safeCol = Math.min(col, 11);
+  ctx.drawImage(
+    iwataSprite,
+    safeCol * FRAME_W, 0, FRAME_W, FRAME_H,
+    stairsIwata.x - (FRAME_W * SCALE) / 2,
+    stairsIwata.y - (FRAME_H * SCALE) / 2,
+    FRAME_W * SCALE,
+    FRAME_H * SCALE
+  );
+}
+
+// 闸机碰撞：侧柱永远阻挡，中间通道仅开门后放行
+function drawShelf() {
+  if (!shelfSprite.complete) return;
+  ctx.drawImage(
+    shelfSprite,
+    0, 0, SHELF_W, SHELF_H,
+    shelf.x - (SHELF_W * SCALE) / 2,
+    shelf.y - (SHELF_H * SCALE) / 2,
+    SHELF_W * SCALE,
+    SHELF_H * SCALE
+  );
+}
+
+
+function blockedByShelf(x, y) {
+  const hw = (SHELF_W * SCALE) / 2;
+  const hh = (SHELF_H * SCALE) / 2;
+  const playerR = 20;
+  return (
+    x > shelf.x - hw - playerR &&
+    x < shelf.x + hw + playerR &&
+    y > shelf.y - hh - playerR &&
+    y < shelf.y + hh + playerR
+  );
+}
+
+function drawBench() {
+  if (!benchSprite.complete) return;
+  ctx.drawImage(
+    benchSprite,
+    0, 0, BENCH_W, BENCH_H,
+    bench.x - (BENCH_W * SCALE) / 2,
+    bench.y - (BENCH_H * SCALE) / 2,
+    BENCH_W * SCALE,
+    BENCH_H * SCALE
+  );
+}
+
+function blockedByOneBench(bx, by, x, y) {
+  const hw = (BENCH_W * SCALE) / 2;
+  const hh = (BENCH_H * SCALE) / 2;
+  if (y < by - hh + 2) return false;
+  return (
+    x > bx - hw - 20 &&
+    x < bx + hw + 20 &&
+    y < by + hh - 46
+  );
+}
+
+function blockedByBench(x, y) {
+  const hw = (BENCH_W * SCALE) / 2;
+  const hh = (BENCH_H * SCALE) / 2;
+
+  // 椅背后方自由通行
+  if (y < bench.y - hh + 2) return false;
+
+  return (
+    x > bench.x - hw - 20 &&
+    x < bench.x + hw + 20 &&
+    y < bench.y + hh - 46      // 正面深入椅面
+  );
+}
+
+function checkBenchSit() {
+  const hw = (BENCH_W * SCALE) / 2;
+  const hh = (BENCH_H * SCALE) / 2;
+  const onBenchX = player.x > bench.x - hw + 8 && player.x < bench.x + hw - 8;
+  const nearSeat  = player.y >= bench.y + hh - 58 && player.y <= bench.y + hh - 28;
+  if (onBenchX && nearSeat && !player.moving) {
+    player.dir = 'down';  // 面朝正面，像坐着
+  }
+}
+
+function blockedByArcade(x, y) {
+  const hw = (ARCADE_W * SCALE) / 2;
+  const hh = (ARCADE_H * SCALE) / 2;
+  const playerR = 20;
+  return (
+    x > arcade.x - hw - playerR &&
+    x < arcade.x + hw + playerR &&
+    y > arcade.y - hh - playerR &&
+    y < arcade.y + hh + playerR
+  );
+}
+
+function blockedByTurnstile(x, y) {
+  const hw = (TURNSTILE_FRAME_W * SCALE) / 2;  // 60px
+  const hh = (TURNSTILE_FRAME_H * SCALE) / 2;  // 50px
+  const playerR = 16;
+  const pillarW = 24; // 侧柱宽度（可微调）
+
+  // Y范围外无碰撞
+  if (y < turnstile.y - hh || y > turnstile.y + hh) return false;
+
+  const inZone = x > turnstile.x - hw - playerR && x < turnstile.x + hw + playerR;
+  if (!inZone) return false;
+
+  // 侧柱：永远阻挡
+  const inLeftPillar  = x < turnstile.x - hw + pillarW;
+  const inRightPillar = x > turnstile.x + hw - pillarW;
+  if (inLeftPillar || inRightPillar) return true;
+
+  // 中间通道：未全开时阻挡
+  return turnstile.state !== 'open';
+}
+
+function distTo(a, b) {
+  const dx = a.x - b.x, dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+// 各场景可行走区域判断（单点版，边界用原始数值，不做偏移）
+// stationv2-marked.png 648×792，游戏内 2× 渲染
+// 竖向段原始：x=8-52, y=190-772  → 世界：x=16-104, y=380-1544
+// 斜向段中心：原始(30,190)→(278,42) → 世界(60,380)→(556,84)
+// 站台原始：x=285-648, y=5-140    → 世界：x=570+, y≤280
+function inSceneBoundsPoint(x, y) {
+  if (scene === 'street') {
+    // 像素级精确测量自 waitingroom-guide.png
+    // 走廊（y 0–360）：x ∈ [445, 555]
+    // 三角（y 400+）：从 [465,533] 以斜率 1.0 向两侧展开
+    // y≥1040：图片底部全开放
+    if (y < 0 || y > 1100) return false;
+    if (y < 400) return x >= 445 && x <= 555;
+    if (y >= 1040) return x >= -147 && x <= 1145;
+    const leftX  = 465 - (y - 400);
+    const rightX = 533 + (y - 400);
+    return x >= leftX && x <= rightX;
+  }
+  if (scene === 'underground') {
+    return x >= 130 && x <= 270;
+  }
+  if (scene === 'stairs') {
+    // 站台
+    if (x >= 570 && x <= 1296 && y >= 10 && y <= 280) return true;
+    // 斜梯：y<55 全部禁止（留足身体上边 ry=8 的缓冲）
+    if (y < 55) return false;
+    if (y > 380) return x >= 16 && x <= 104;
+    // y=55~84 用楼梯顶端 cx=556 做平顶缓冲；y>84 正常斜向公式
+    const cy = Math.max(y, 84);
+    const cx = 60 + (380 - cy) / 296 * 496;
+    return Math.abs(x - cx) <= 58;
+  }
+  return true;
+}
+
+// 玩家身体四边检测：左右各 16px，上下各 8px
+function playerInBounds(px, py) {
+  const rx = 16, ry = 8;
+  return inSceneBoundsPoint(px - rx, py) &&
+         inSceneBoundsPoint(px + rx, py) &&
+         inSceneBoundsPoint(px, py - ry) &&
+         inSceneBoundsPoint(px, py + ry);
+}
+
+// 是否在斜向楼梯区（自动攀爬判据）
+// 已经站上平台（x≥570）时不触发，让玩家在站台自由移动
+function inDiagonalZone(x, y) {
+  if (scene !== 'stairs' || y > 380 || y < 55) return false;
+  if (x >= 570 && y >= 10 && y <= 280) return false;  // 在站台上，不触发攀爬
+  const cy = Math.max(y, 84);
+  const cx = 60 + (380 - cy) / 296 * 496;
+  return Math.abs(x - cx) <= 58;
+}
+
+function update() {
+  // 场景切换触发（无条件，每帧都判断）
+  // 走廊入口：人物进入黑色渐变通道内才触发，X 范围限制在通道宽度内
+  if (scene === 'street' && fadeState === 'none' &&
+      player.y < door.y + 20 && Math.abs(player.x - door.x) < door.halfW) {
+    startFade('stairs', 60, 1500);
+  }
+
+  // 落座后：更新列车位置，然后锁定玩家，跳过所有移动逻辑
+  if (seated && scene === 'stairs') {
+    if (_trainDeparting) {
+      if (departTime < 0) departTime = Date.now();
+      const t = Math.min((Date.now() - departTime) / TRAIN_DURATION, 1);
+      const eased = t * t; // ease-in：缓缓加速，和到站的缓入动感对称
+      trainX = TRAIN_STOP_X + eased * (TRAIN_START_X - TRAIN_STOP_X);
+    } else {
+      const t = Math.min((Date.now() - seatTime) / TRAIN_DURATION, 1);
+      const eased = 1 - (1 - t) * (1 - t);
+      trainX = TRAIN_START_X - eased * (TRAIN_START_X - TRAIN_STOP_X);
+    }
+    // 对白激活时锁定玩家（移动动作期间例外，由 updateDialogue 控制）
+    if (dialogueActive && !dialogueWaitsMovement) {
+      player.moving = false;
+      player.frame = getIdleFrame(player.dir);
+      return;
+    }
+    // 对白未激活时也锁定（等待岩田就座）
+    if (!dialogueStarted) {
+      player.moving = false;
+      player.frame = getIdleFrame(player.dir);
+      player.dir = 'down';
+      return;
+    }
+    return;
+  }
+
+  // 书架阅读/选择时锁定玩家
+  if (_shelfBookIdx >= 0 || _shelfOpen) {
+    player.moving = false;
+    player.frame = getIdleFrame(player.dir);
+    return;
+  }
+
+  // 街机对话时锁定玩家
+  if (_arcadeAsking) {
+    player.moving = false;
+    player.frame = getIdleFrame(player.dir);
+    return;
+  }
+
+  // 键盘移动
+  const left  = keys['ArrowLeft']  || keys['KeyA'];
+  const right = keys['ArrowRight'] || keys['KeyD'];
+  const up    = keys['ArrowUp']    || keys['KeyW'];
+  const down  = keys['ArrowDown']  || keys['KeyS'];
+
+  if (left || right || up || down) {
+    let kx = 0, ky = 0;
+
+    if (inDiagonalZone(player.x, player.y)) {
+      // 斜梯轨道移动：上行时 y 推进 + x 贴中心线；到顶后向右滑入站台
+      const DIAG_SPEED = SPEED * Math.sin(27 * Math.PI / 180);
+      if (right) {
+        if (player.y > 84) {
+          // 斜梯段：沿轨道上升
+          player.y = Math.max(player.y - DIAG_SPEED, 84);
+          player.x = 60 + (380 - player.y) / 296 * 496;
+        } else {
+          // 顶端平台入口：直接向右走上站台
+          const nx = player.x + SPEED;
+          if (playerInBounds(nx, player.y)) player.x = nx;
+        }
+        player.dir = 'up'; player.moving = true;
+        player.frame = Math.floor(Date.now() / 150) % 3;
+        return;
+      } else if (left) {
+        // 下行：沿轨道下退
+        const nextY = player.y + DIAG_SPEED;
+        if (nextY <= 380) {
+          player.y = nextY;
+          player.x = 60 + (380 - player.y) / 296 * 496;
+        }
+        player.dir = 'down'; player.moving = true;
+        player.frame = Math.floor(Date.now() / 150) % 3;
+        return;
+      }
+    } else {
+      if (left)  { kx -= 1; player.dir = 'left'; }
+      if (right) { kx += 1; player.dir = 'right'; }
+      if (up)    { ky -= 1; player.dir = 'up'; }
+      if (down)  { ky += 1; player.dir = 'down'; }
+      const len = Math.sqrt(kx * kx + ky * ky);
+      if (len > 0) { kx /= len; ky /= len; }
+    }
+
+    if (kx === 0 && ky === 0) {
+      if (!player.moving) player.frame = getIdleFrame(player.dir);
+      return;
+    }
+
+    const nextX = player.x + kx * SPEED;
+    const nextY = player.y + ky * SPEED;
+
+    // 碰撞检测
+    const streetBlocked = scene === 'street' && (blockedByTurnstile(nextX, nextY) || blockedByArcade(nextX, nextY) || blockedByShelf(nextX, nextY));
+    const stairsBlocked = scene === 'stairs' && stairsBenches.some(b => blockedByOneBench(b.x, b.y, nextX, nextY));
+    if (!streetBlocked && !stairsBlocked && playerInBounds(nextX, nextY)) {
+      player.x = nextX;
+      player.y = nextY;
+    }
+
+    player.frameTimer++;
+    if (player.frameTimer >= player.frameInterval) {
+      player.frameTimer = 0;
+      player.frame = (player.frame + 1) % 3;
+    }
+    return;
+  } else {
+    // 没按键时静止帧
+    if (!player.moving) {
+      player.frame = getIdleFrame(player.dir);
+      // 站台场景：靠近椅子时自动朝正面
+      if (scene === 'stairs') {
+        const hw = BENCH_W * SCALE / 2 + 30;
+        // 只有椅子1触发落座（椅子2留给岩田）
+        const b0 = stairsBenches[0];
+        const nearBench =
+          Math.abs(player.x - b0.x) < hw &&
+          player.y > b0.y - BENCH_H * SCALE / 2 - 10 &&
+          player.y < b0.y + BENCH_H * SCALE / 2 + 10;
+        if (nearBench) {
+          player.dir = 'down';
+          // 第一次落座：触发列车驶入 + 时钟启动
+          if (!seated) { seated = true; seatTime = Date.now(); }
+        }
+      }
+    }
+  }
+
+  if (!player.moving || !player.target) return;
+
+  const dx = player.target.x - player.x;
+  const dy = player.target.y - player.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist < SPEED + 1) {
+    player.x = player.target.x;
+    player.y = player.target.y;
+    player.moving = false;
+    player.frame = getIdleFrame(player.dir);
+    return;
+  }
+
+  // 点击移动时，斜梯区域沿轨道行走（防止直线路径超出走廊）
+  if (inDiagonalZone(player.x, player.y)) {
+    const DIAG_SPEED = SPEED * Math.sin(27 * Math.PI / 180);
+    if (player.target.y <= player.y) {
+      // 上行：沿轨道向上
+      if (player.y > 84) {
+        player.y = Math.max(player.y - DIAG_SPEED, 84);
+        player.x = 60 + (380 - player.y) / 296 * 496;
+      } else {
+        // 到顶，向右滑入站台
+        const nx = player.x + SPEED;
+        if (playerInBounds(nx, player.y)) player.x = nx;
+        else { player.moving = false; player.frame = getIdleFrame(player.dir); return; }
+      }
+      player.dir = 'up';
+    } else {
+      // 下行：沿轨道向下，超过 y=380 后让正常移动接管
+      player.y += DIAG_SPEED;
+      player.x = player.y >= 380 ? 60 : 60 + (380 - player.y) / 296 * 496;
+      player.dir = 'down';
+    }
+    player.frame = Math.floor(Date.now() / 150) % 3;
+    return;
+  }
+
+  // 判断方向
+  if (Math.abs(dx) > Math.abs(dy)) {
+    player.dir = dx > 0 ? 'right' : 'left';
+  } else {
+    player.dir = dy > 0 ? 'down' : 'up';
+  }
+
+  // 碰撞检测
+  const nextX = player.x + (dx / dist) * SPEED;
+  const nextY = player.y + (dy / dist) * SPEED;
+  if (!playerInBounds(nextX, nextY) ||
+      (scene === 'street' && (blockedByTurnstile(nextX, nextY) || blockedByArcade(nextX, nextY) || blockedByShelf(nextX, nextY))) ||
+      (scene === 'stairs' && stairsBenches.some(b => blockedByOneBench(b.x, b.y, nextX, nextY)))) {
+    player.moving = false;
+    player.frame = getIdleFrame(player.dir);
+    return;
+  }
+
+  player.x = nextX;
+  player.y = nextY;
+
+  // 动画帧
+  player.frameTimer++;
+  if (player.frameTimer >= player.frameInterval) {
+    player.frameTimer = 0;
+    player.frame = (player.frame + 1) % 3;
+  }
+
+}
+
+function drawTriangleRoom(camX, camY) {
+  // 正三角形房间：顶端在上（大门处），底边在下（入口）
+  const APEX = { x: 500, y: -80 };   // 顶端：大门所在
+  const BL   = { x: -200, y: 900 };  // 底部左角
+  const BR   = { x: 1200, y: 900 };  // 底部右角
+
+  // 先用深色铺满可视区域（墙体）
+  ctx.fillStyle = '#2a2721';
+  ctx.fillRect(camX - 100, camY - 100, viewW + 200, viewH + 200);
+
+  // 三角形地板
+  ctx.beginPath();
+  ctx.moveTo(APEX.x, APEX.y);
+  ctx.lineTo(BL.x, BL.y);
+  ctx.lineTo(BR.x, BR.y);
+  ctx.closePath();
+  ctx.fillStyle = '#f0ebe0';
+  ctx.fill();
+
+  // 墙体边线（厚实感）
+  ctx.strokeStyle = '#7a7268';
+  ctx.lineWidth = 10;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+}
+
+function drawStreetScene() {
+  const camX = player.x - viewW / 2;
+  let camY;
+  if (titleState === 'title')        camY = _TITLE_CAM_Y;
+  else if (titleState === 'panning') camY = _panCamY;
+  else                               camY = Math.max(0, player.y - viewH / 2);
+  ctx.save();
+  ctx.translate(-camX, -camY);
+
+  // 背景填充（与图片渐变边缘同色，无缝衔接）
+  ctx.fillStyle = '#f0ebe0';
+  ctx.fillRect(camX - 10, camY - 10, viewW + 20, viewH + 20);
+  if (waitingRoomSprite.complete && waitingRoomSprite.naturalWidth > 0) {
+    ctx.imageSmoothingEnabled = false;
+    const imgW = waitingRoomSprite.naturalWidth;
+    const imgH = waitingRoomSprite.naturalHeight;
+    const drawX = 500 - (imgW * SCALE) / 2;  // 2× 与道具一致，以 x=500 居中
+    ctx.drawImage(waitingRoomSprite, drawX, 0, imgW * SCALE, imgH * SCALE);
+  }
+
+  if (player.target && player.moving) {
+    ctx.beginPath();
+    ctx.arc(player.target.x, player.target.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fill();
+  }
+
+  const hw = (BENCH_W * SCALE) / 2;
+  const hh = (BENCH_H * SCALE) / 2;
+  const playerSortY = player.y;
+
+  const entities = [
+    { y: arcade.y,    fn: drawArcade },
+    { y: turnstile.y, fn: drawTurnstile },
+    { y: shelf.y,     fn: drawShelf },
+    { y: playerSortY, fn: drawPlayer },
+  ];
+  entities.sort((a, b) => a.y - b.y);
+  entities.forEach(e => e.fn());
+
+  drawBubble(player.x, player.y, bubble);
+  drawBubble(arcade.x, arcade.y - 20, arcadeBubble);
+  drawArcadeChoice();  // 绘制街机选项
+  drawBubble(shelf.x,  shelf.y  - 20, shelfBubble);
+
+  ctx.restore();
+}
+
+function drawUndergroundScene() {
+  const camX = player.x - canvas.width  / 2;
+  const camY = player.y - canvas.height / 2;
+
+  ctx.save();
+  ctx.translate(-camX, -camY);
+
+  // 黑暗背景（墙体）
+  ctx.fillStyle = '#080810';
+  ctx.fillRect(camX - 100, camY - 100, canvas.width + 200, canvas.height + 200);
+
+  // 走廊地板（x 130–270）
+  ctx.fillStyle = '#10101e';
+  ctx.fillRect(130, camY - 100, 140, canvas.height + 200);
+
+  // 走廊侧墙线
+  ctx.strokeStyle = '#282840';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(130, camY - 100); ctx.lineTo(130, camY + canvas.height + 100);
+  ctx.moveTo(270, camY - 100); ctx.lineTo(270, camY + canvas.height + 100);
+  ctx.stroke();
+
+  // 玩家周围光晕（世界坐标）
+  const g = ctx.createRadialGradient(player.x, player.y, 5, player.x, player.y, 130);
+  g.addColorStop(0, 'rgba(255,240,200,0.14)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(camX, camY, canvas.width, canvas.height);
+
+  drawPlayer();
+  ctx.restore();
+}
+
+function drawStairsScene() {
+  // 背景色：y=1500 最暗，y=300 完全变暖
+  const t = Math.max(0, Math.min(1, (player.y - 300) / 1200));
+  const r  = Math.round(13  + (245 - 13)  * (1 - t));
+  const gr = Math.round(13  + (240 - 13)  * (1 - t));
+  const b  = Math.round(21  + (232 - 21)  * (1 - t));
+  // 背景透明 → bg-canvas 的白夜黑星透出来
+  ctx.clearRect(0, 0, viewW, viewH);
+
+  // 摄像机跟随玩家
+  const camX = player.x - viewW / 2;
+  const camY = player.y - viewH / 2;
+  ctx.save();
+  ctx.translate(-camX, -camY);
+
+  // assets/images/station.png 放在世界坐标 (0,0)，2× 尺寸
+  if (stationSprite.complete) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(stationSprite, 0, 0, STATION_W * 2, STATION_H * 2);
+  }
+
+  // 岩田在列车内时（脚底 y+58 仍在列车区域），先画他再画列车，让列车盖住他
+  const iwataFeet = stairsIwata.y + FRAME_H * SCALE / 2;  // y + 58
+  const iwataInTrain = stairsIwata.state !== 'hidden' && iwataFeet >= TRAIN_Y;
+  if (iwataInTrain) drawStairsIwata();
+
+  // 列车（画在站台前景实体之前，但在车内岩田之后）
+  if (seated && trainSprite.complete) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(trainSprite, 0, 0, TRAIN_W, TRAIN_H,
+      trainX, TRAIN_Y, TRAIN_W * SCALE, TRAIN_H * SCALE);
+  }
+
+  // 站台实体 y-sort（长椅 + 时钟 + 玩家 + 已踏上站台的岩田）
+  const bw = BENCH_W * SCALE, bh = BENCH_H * SCALE;
+  const cw = CLOCK_FRAME_W * SCALE, ch = CLOCK_FRAME_H * SCALE;
+  // 脚底已离开列车区域才进 y-sort（整个精灵都在站台上）
+  const iwataOnPlatform = stairsIwata.state !== 'hidden' && !iwataInTrain;
+
+  const stairsEntities = [
+    ...stairsBenches.map(b => ({
+      sortY: b.y + bh / 2,
+      draw() {
+        if (!benchSprite.complete) return;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(benchSprite, 0, 0, BENCH_W, BENCH_H,
+          b.x - bw / 2, b.y - bh / 2, bw, bh);
+      }
+    })),
+    {
+      sortY: clockPos.y,
+      draw() {
+        if (!clockSprite.complete) return;
+        // 落座前时钟冻结（显示第 0 帧）；落座后随时间推进
+        const frame = seated
+          ? Math.floor((Date.now() - seatTime) / CLOCK_MS_PER_FRAME) % CLOCK_FRAMES
+          : 0;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(clockSprite,
+          frame * CLOCK_FRAME_W, 0, CLOCK_FRAME_W, CLOCK_FRAME_H,
+          clockPos.x - cw / 2, clockPos.y - ch, cw, ch);
+      }
+    },
+    ...(iwataOnPlatform ? [{
+      sortY: stairsIwata.y + FRAME_H * SCALE / 2,
+      draw: drawStairsIwata
+    }] : []),
+    {
+      sortY: player.y + FRAME_H * SCALE / 2,
+      draw: drawPlayer
+    }
+  ];
+  stairsEntities.sort((a, b) => a.sortY - b.sortY);
+  stairsEntities.forEach(e => e.draw());
+
+  // 气泡（在 camera transform 内，跟随角色）
+  drawBubble(player.x, player.y, bubble);
+  drawBubble(player.x, player.y, hintBubble);
+  if (stairsIwata.state !== 'hidden') {
+    drawBubble(stairsIwata.x, stairsIwata.y, iwataBubble);
+  }
+  drawChoiceBubble(player.x, player.y);
+
+  ctx.restore();
+
+  // 黑幕叠加（越往下越暗，最多 55%）
+  if (t > 0.05) {
+    ctx.fillStyle = `rgba(0,0,0,${t * 0.55})`;
+    ctx.fillRect(0, 0, viewW, viewH);
+  }
+
+}
+
+function updateEndSequence() {
+  if (_endState === 'fading') {
+    _fadeWhiteAlpha = Math.min(1, (Date.now() - _endFadeStart) / 3000);
+    if (_fadeWhiteAlpha >= 1) { _endState = 'fin'; _finShowTime = Date.now(); }
+  }
+  if (_endState === 'fin' && Date.now() - _finShowTime >= 5000) {
+    _endState = 'replay';
+  }
+}
+
+function drawEndSequence() {
+  if (_endState === 'none') return;
+
+  // 白色渐变覆盖（在 canvas 像素坐标中，不受 zoom/camera 影响）
+  ctx.fillStyle = `rgba(245, 240, 232, ${_fadeWhiteAlpha})`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (_endState === 'fin' || _endState === 'replay') {
+    const finAlpha = Math.min(1, (Date.now() - _finShowTime) / 1000);
+    ctx.font = `24px 'ZhengGe', 'DotGothic16', sans-serif`;
+    ctx.fillStyle = `rgba(42, 34, 24, ${finAlpha})`;
+    const finText = '-fin-';
+    const finW = ctx.measureText(finText).width;
+    ctx.fillText(finText, (canvas.width - finW) / 2, canvas.height / 2);
+  }
+
+  if (_endState === 'replay') {
+    const elapsed = Date.now() - _finShowTime - 5000;
+    const replayAlpha = Math.max(0, Math.min(1, elapsed / 1000));
+    if (replayAlpha > 0) {
+      ctx.font = `16px 'ZhengGe', 'DotGothic16', sans-serif`;
+      ctx.fillStyle = `rgba(42, 34, 24, ${replayAlpha * 0.55})`;
+      const txt = 'play again';
+      const tw = ctx.measureText(txt).width;
+      ctx.fillText(txt, (canvas.width - tw) / 2, canvas.height / 2 + 36);
+    }
+  }
+}
+
+// ── 书架 UI ──────────────────────────────────────
+function drawBookSelector() {
+  // 世界坐标转屏幕坐标
+  const zoom = getZoom();
+  const screenX = (shelf.x - player.x) * zoom + canvas.width / 2;
+  const screenY = (shelf.y - player.y) * zoom + canvas.height / 2;
+
+  const anchorX = screenX;
+  const anchorY = screenY - (SHELF_H * SCALE * zoom) / 2 - 10;
+
+  const padding = 10;
+  const fontSize = Math.round(16 * zoom);
+  const lineH = fontSize + 8;
+  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+
+  const titles = BOOKS.map(b => b.title);
+  const indW = ctx.measureText('▶ ').width;
+  const maxW = Math.max(...titles.map(t => ctx.measureText(t).width));
+  const boxW = maxW + indW + padding * 2 + 4;
+  const boxH = titles.length * lineH + padding * 2;
+  const bx = anchorX - boxW / 2;
+  const by = anchorY - boxH;
+
+  // 气泡 + 三角（同岩田选项风格）
+  const r = 7, tw = 7;
+  ctx.beginPath();
+  ctx.moveTo(bx + r, by);
+  ctx.lineTo(bx + boxW - r, by);
+  ctx.quadraticCurveTo(bx + boxW, by, bx + boxW, by + r);
+  ctx.lineTo(bx + boxW, by + boxH - r);
+  ctx.quadraticCurveTo(bx + boxW, by + boxH, bx + boxW - r, by + boxH);
+  ctx.lineTo(anchorX + tw, by + boxH);
+  ctx.lineTo(anchorX, by + boxH + 9);
+  ctx.lineTo(anchorX - tw, by + boxH);
+  ctx.lineTo(bx + r, by + boxH);
+  ctx.quadraticCurveTo(bx, by + boxH, bx, by + boxH - r);
+  ctx.lineTo(bx, by + r);
+  ctx.quadraticCurveTo(bx, by, bx + r, by);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255, 252, 244, 0.95)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(50, 40, 30, 0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 选项行（岩田同款：▶标记 + 高亮背景）
+  window._shelfBtns = titles.map((title, i) => {
+    const oy = by + padding + i * lineH;
+    if (i === _shelfBookSelected) {
+      ctx.fillStyle = 'rgba(180, 140, 60, 0.18)';
+      ctx.fillRect(bx + 3, oy - 2, boxW - 6, lineH);
+    }
+    ctx.fillStyle = '#2a2218';
+    ctx.fillText(i === _shelfBookSelected ? '▶ ' : '   ', bx + padding, oy + fontSize);
+    ctx.fillText(title, bx + padding + indW, oy + fontSize);
+    return { x: bx + 3, y: oy - 2, w: boxW - 6, h: lineH, idx: i };
+  });
+}
+
+function drawBookReader() {
+  const book  = BOOKS[_shelfBookIdx];
+
+  // 只显示当前一行（类似岩田对话，一句一句来）
+  const currentLine = book.lines[_shelfRevealIdx];
+  if (!currentLine) return;
+  const text = currentLine.substring(0, _shelfTypingChars);
+  if (!text) return;
+
+  // 世界坐标转屏幕坐标
+  const zoom = getZoom();
+  const screenX = (shelf.x - player.x) * zoom + canvas.width / 2;
+  const screenY = (shelf.y - player.y) * zoom + canvas.height / 2;
+
+  const anchorX = screenX;
+  const anchorY = screenY - 20 * zoom;
+  const padding = 10;
+  const fontSize = 16;
+  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+
+  // 单行长文本自动换行
+  const maxWidth = 200;
+  let lines = [];
+  let line = '';
+  for (const ch of text) {
+    const test = line + ch;
+    if (ctx.measureText(test).width > maxWidth) { lines.push(line); line = ch; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+
+  // 避免行首出现标点
+  const LEAD_PUNCT = '。，！？；：、…—》）」』〕';
+  for (let i = lines.length - 1; i > 0; i--) {
+    while (lines[i].length > 0 && LEAD_PUNCT.includes(lines[i][0])) {
+      lines[i - 1] += lines[i][0];
+      lines[i] = lines[i].slice(1);
+    }
+  }
+  lines = lines.filter(l => l.length > 0);
+
+  const lineH = fontSize + 5;
+  const boxW = Math.max(...lines.map(l => ctx.measureText(l).width)) + padding * 2;
+  const boxH = lines.length * lineH + padding * 2 - 5;
+  const bx = anchorX - boxW / 2;
+  const by = anchorY - boxH;
+
+  // 气泡 + 三角
+  const r = 7;
+  const tx = anchorX, tw = 7;
+  ctx.beginPath();
+  ctx.moveTo(bx + r, by);
+  ctx.lineTo(bx + boxW - r, by);
+  ctx.quadraticCurveTo(bx + boxW, by, bx + boxW, by + r);
+  ctx.lineTo(bx + boxW, by + boxH - r);
+  ctx.quadraticCurveTo(bx + boxW, by + boxH, bx + boxW - r, by + boxH);
+  ctx.lineTo(tx + tw, by + boxH);
+  ctx.lineTo(tx, by + boxH + 9);
+  ctx.lineTo(tx - tw, by + boxH);
+  ctx.lineTo(bx + r, by + boxH);
+  ctx.quadraticCurveTo(bx, by + boxH, bx, by + boxH - r);
+  ctx.lineTo(bx, by + r);
+  ctx.quadraticCurveTo(bx, by, bx + r, by);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255, 252, 244, 0.93)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(50, 40, 30, 0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 文字
+  ctx.fillStyle = '#2a2218';
+  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+  lines.forEach((l, i) => {
+    ctx.fillText(l, anchorX - ctx.measureText(l).width / 2, by + padding + fontSize + i * lineH - 5);
+  });
+
+  // 书名小标签（左上角）
+  const titleW = ctx.measureText(book.title).width;
+  const tagW = titleW + 12;
+  const tagH = 20;
+  const tagX = bx + 8;
+  const tagY = by - tagH + 4;
+  ctx.fillStyle = 'rgba(255, 252, 244, 0.9)';
+  roundRect(ctx, tagX, tagY, tagW, tagH, 4);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(50, 40, 30, 0.2)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(42, 34, 24, 0.5)';
+  ctx.fillText(book.title, tagX + 6, tagY + 14);
+}
+
+// 绘制书架选书气泡（直接显示四本书 + 关闭）
+function drawShelfAskBubble() {
+  // 世界坐标转屏幕坐标（drawShelfUI 在 ctx.restore() 后调用，无相机变换）
+  const zoom = getZoom();
+  const screenX = (shelf.x - player.x) * zoom + canvas.width / 2;
+  const screenY = (shelf.y - player.y) * zoom + canvas.height / 2;
+
+  const anchorX = screenX;
+  // 修正气泡位置：在书架顶部上方
+  const anchorY = screenY - (SHELF_H * SCALE * zoom) / 2 - 10;
+  const padding = 10;
+  const fontSize = Math.round(16 * zoom);
+  const lineH = fontSize + 8;
+  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+
+  // 提示语
+  const hintText = '书架上有一些书，来翻看一下吧。';
+  const hintWidth = ctx.measureText(hintText).width;
+
+  // 显示四本书 + 关闭选项（带《》书名号）
+  const opts = BOOKS.map(b => `《${b.title}》`).concat(['关闭']);
+  const indW = ctx.measureText('▶ ').width;
+  const maxW = Math.max(...opts.map(o => ctx.measureText(o).width), hintWidth);
+  const boxW = maxW + indW + padding * 2 + 4;
+  const hintH = lineH + 5; // 提示语高度（带一点间距）
+  const boxH = hintH + opts.length * lineH + padding * 2;
+  const bx = anchorX - boxW / 2;
+  const by = anchorY - boxH;
+
+  // 气泡 + 三角
+  const r = 7, tw = 7;
+  ctx.beginPath();
+  ctx.moveTo(bx + r, by);
+  ctx.lineTo(bx + boxW - r, by);
+  ctx.quadraticCurveTo(bx + boxW, by, bx + boxW, by + r);
+  ctx.lineTo(bx + boxW, by + boxH - r);
+  ctx.quadraticCurveTo(bx + boxW, by + boxH, bx + boxW - r, by + boxH);
+  ctx.lineTo(anchorX + tw, by + boxH);
+  ctx.lineTo(anchorX, by + boxH + 9);
+  ctx.lineTo(anchorX - tw, by + boxH);
+  ctx.lineTo(bx + r, by + boxH);
+  ctx.quadraticCurveTo(bx, by + boxH, bx, by + boxH - r);
+  ctx.lineTo(bx, by + r);
+  ctx.quadraticCurveTo(bx, by, bx + r, by);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255, 252, 244, 0.95)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(50, 40, 30, 0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 绘制提示语
+  ctx.fillStyle = '#2a2218';
+  ctx.fillText(hintText, anchorX - hintWidth / 2, by + padding + fontSize);
+
+  // 选项行，记录 hit-rect
+  window._shelfBtns = opts.map((opt, i) => {
+    const oy = by + padding + hintH + i * lineH;
+    if (i === _shelfBookSelected) {
+      ctx.fillStyle = 'rgba(180, 140, 60, 0.18)';
+      ctx.fillRect(bx + 3, oy - 2, boxW - 6, lineH);
+    }
+    ctx.fillStyle = '#2a2218';
+    ctx.fillText(i === _shelfBookSelected ? '▶ ' : '   ', bx + padding, oy + fontSize);
+    ctx.fillText(opt, bx + padding + indW, oy + fontSize);
+    return { x: bx + 3, y: oy - 2, w: boxW - 6, h: lineH, idx: i };
+  });
+}
+
+function drawShelfUI() {
+  // 选书阶段
+  if (_shelfOpen && _shelfBookIdx < 0) {
+    drawShelfAskBubble();
+    return;
+  }
+  if (!_shelfOpen && _shelfBookIdx < 0) return;
+  const fadeIn = Math.min(1, (Date.now() - _shelfOpenTime) / 220);
+  ctx.save();
+  ctx.globalAlpha = fadeIn;
+  if (_shelfBookIdx >= 0) drawBookReader();
+  ctx.restore();
+}
+// ─────────────────────────────────────────────────
+
+function drawTitleOverlay() {
+  // 计算透明度：pan 开始后 700ms 内淡出
+  let alpha = 1;
+  if (titleState === 'panning') {
+    alpha = Math.max(0, 1 - (Date.now() - _panStartTime) / 1800);
+  }
+  if (alpha <= 0) return;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.imageSmoothingEnabled = false;
+
+  // 标题图片居中
+  if (titleSprite.complete && titleSprite.naturalWidth > 0) {
+    const maxW = canvas.width * 0.82;
+    const scaleF = Math.min(3, maxW / titleSprite.naturalWidth);
+    const tw = Math.round(titleSprite.naturalWidth  * scaleF);
+    const th = Math.round(titleSprite.naturalHeight * scaleF);
+    ctx.drawImage(titleSprite,
+      Math.round((canvas.width - tw) / 2),
+      Math.round(canvas.height / 2 - th * 1.4),
+      tw, th);
+  }
+
+  // 闪烁提示文字
+  const blink = 0.35 + 0.35 * Math.sin(Date.now() * 0.0025);
+  const zoom = getZoom();
+  const fSize = Math.round(16 * zoom);
+  ctx.font = `${fSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+  ctx.fillStyle = `rgba(42, 34, 24, ${blink})`;
+  const hint = 'click or press space';
+  const hw = ctx.measureText(hint).width;
+  ctx.fillText(hint,
+    Math.round((canvas.width - hw) / 2),
+    Math.round(canvas.height / 2 + fSize * 0.8));
+
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const zoom = getZoom();
+  ctx.save();
+  ctx.scale(zoom, zoom);
+
+  // 标题/pan 阶段强制渲染 street 场景（相机位于图片下方）
+  if (titleState === 'title' || titleState === 'panning') {
+    drawStreetScene();
+  } else if (scene === 'street') {
+    drawStreetScene();
+  } else if (scene === 'stairs')      drawStairsScene();
+
+  ctx.restore();
+
+  // 全局淡入淡出遮罩（在 zoom 之外，直接覆盖全屏）
+  if (fadeAlpha > 0) {
+    ctx.fillStyle = `rgba(0,0,0,${fadeAlpha})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // 书架 UI（canvas px 空间，不受 zoom 影响）
+  if (scene === 'street' && titleState === 'playing') drawShelfUI();
+
+  // 标题叠加层（canvas px 空间，不受 zoom 影响）
+  if (titleState === 'title' || titleState === 'panning') drawTitleOverlay();
+
+  drawEndSequence();
+}
+
+function loop() {
+  // ── 标题 / pan 阶段：冻结游戏逻辑 ──
+  if (titleState === 'panning') {
+    const t = Math.min(1, (Date.now() - _panStartTime) / _PAN_DURATION);
+    // ease-in-out cubic：慢启 → 加速 → 慢收，营造仪式感
+    const eased = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+    const endY = Math.max(0, player.y - viewH / 2);
+    _panCamY = _TITLE_CAM_Y + (endY - _TITLE_CAM_Y) * eased;
+    if (t >= 1) { titleState = 'playing'; _panCamY = endY; }
+  }
+  if (titleState !== 'playing') {
+    draw();
+    requestAnimationFrame(loop);
+    return;
+  }
+
+  update();
+  updateFade();
+  updateEndSequence();
+  if (scene === 'stairs') {
+    updateStairsIwata();
+    // 岩田就座后启动对白
+    if (stairsIwata.state === 'sitting' && !dialogueStarted) startDialogue();
+    updateDialogue();
+    // 星星加密信号传递给 bg-canvas
+    if (_starsDense && !window._bgStarsDense) window._bgStarsDense = true;
+
+    // 站台提示：走上站台后5秒再冒泡，落座后消失
+    const onPlatform = player.x >= 570 && player.y <= 280;
+    if (!seated && fadeState === 'none' && onPlatform) {
+      if (_platformArriveTime < 0) _platformArriveTime = Date.now();
+      if (!_hintShown && Date.now() - _platformArriveTime > 5000) {
+        _hintShown = true;
+        startBubble(hintBubble, '坐下来休息一下吧。');
+      }
+    }
+    if (seated) hintBubble.visible = false;
+    if (!seated) updateBubble(hintBubble);
+  }
+  if (scene === 'street') {
+    updateTurnstile();
+    updateArcade();
+    updateShelf();
+    updateBubble(bubble);
+    updateBubble(arcadeBubble);
+    updateBubble(shelfBubble);
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// 图片 + 字体全部就绪后才启动
+let loadedCount = 0;
+let fontReady = false;
+function tryStart() {
+  if (loadedCount === 11 && fontReady) loop();
+}
+function onImageLoad() {
+  loadedCount++;
+  tryStart();
+}
+const _zhengGeFont = new FontFace('ZhengGe', "url('assets/fonts/ZhengGeDianHei-16.ttf')");
+_zhengGeFont.load().then(face => {
+  document.fonts.add(face);
+  fontReady = true;
+  tryStart();
+}).catch(() => { fontReady = true; tryStart(); });
+sprite.onload = onImageLoad;
+iwataSprite.onload = onImageLoad;
+turnstileSprite.onload = onImageLoad;
+arcadeSprite.onload = onImageLoad;
+shelfSprite.onload = onImageLoad;
+benchSprite.onload = onImageLoad;
+stationSprite.onload = onImageLoad;
+clockSprite.onload = onImageLoad;
+trainSprite.onload = onImageLoad;
+waitingRoomSprite.onload = onImageLoad;
+titleSprite.onload = onImageLoad;
+</script>
+
+<script>
+// 白夜黑星背景 —— 低分辨率像素点下落，无任何库
+;(function() {
+  const bg = document.getElementById('bg-canvas');
+  const bx = bg.getContext('2d');
+
+  // 低分辨率画布（像素风格）
+  const PIX = 4;  // 每个逻辑像素 = 屏幕 4px
+  const lo = document.createElement('canvas');
+  const lx = lo.getContext('2d');
+  lx.imageSmoothingEnabled = false;
+
+  let lw, lh;
+  const stars = [];
+  let NUM = 60;
+
+  function resize() {
+    bg.width  = window.innerWidth;
+    bg.height = window.innerHeight;
+    lw = Math.ceil(bg.width  / PIX);
+    lh = Math.ceil(bg.height / PIX);
+    lo.width  = lw;
+    lo.height = lh;
+  }
+
+  function spawnStar(s, fromTop) {
+    s.x     = Math.floor(Math.random() * lw);
+    s.y     = fromTop ? -1 : Math.floor(Math.random() * lh);
+    s.speed = 0.15 + Math.random() * 0.25;
+    s.big   = Math.random() < 0.2;  // 20% 的星星是 2px
+  }
+
+  resize();
+  for (let i = 0; i < NUM; i++) {
+    const s = {};
+    spawnStar(s, false);
+    stars.push(s);
+  }
+  window.addEventListener('resize', resize);
+
+  function loop() {
+    requestAnimationFrame(loop);
+
+    // 白夜底色
+    lx.fillStyle = '#f5f0e8';
+    lx.fillRect(0, 0, lw, lh);
+
+    // 星星加密（对白【三】后触发）
+    if (window._bgStarsDense && stars.length < 200) {
+      for (let i = 0; i < 4; i++) { const s = {}; spawnStar(s, true); stars.push(s); }
+    }
+
+    // 十字像素星
+    lx.fillStyle = '#9c9488';
+    for (const s of stars) {
+      const x = Math.floor(s.x), y = Math.floor(s.y);
+      if (s.big) {
+        // 大星：3px 十字
+        lx.fillRect(x,   y-1, 1, 3);
+        lx.fillRect(x-1, y,   3, 1);
+      } else {
+        // 小星：单像素
+        lx.fillRect(x, y, 1, 1);
+      }
+      s.y += s.speed;
+      if (s.y >= lh + 2) spawnStar(s, true);
+    }
+
+    // 放大到屏幕（pixelated）
+    bx.imageSmoothingEnabled = false;
+    bx.drawImage(lo, 0, 0, bg.width, bg.height);
+  }
+
+  loop();
+})();
+</script>
+</body>
+</html>
