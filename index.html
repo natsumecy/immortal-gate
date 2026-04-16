@@ -1174,6 +1174,11 @@ canvas.addEventListener('click', (e) => {
     return;
   }
 
+  // 自动行走期间禁用点击移动（防止干扰剧情动画）
+  if (dialogueWaitsMovement) {
+    return;
+  }
+
   // 街机选项点击处理（需要将屏幕坐标转为世界坐标）
   if (_arcadeAsking && _arcadeStep === 1 && window._arcadeBtns) {
     const zoom = getZoom();
@@ -2055,7 +2060,9 @@ function update(deltaTime) {
 
   // 点击移动时，斜梯区域沿轨道行走（防止直线路径超出走廊）
   if (inDiagonalZone(player.x, player.y)) {
-    if (player.target.y <= player.y) {
+    // 如果目标是去右上方（站台方向），即使点击位置稍低也强制上行
+    const goingUp = player.target.y <= player.y || (player.target.x > player.x && player.target.y < 380);
+    if (goingUp) {
       // 上行：沿轨道向上
       if (player.y > 84) {
         player.y = Math.max(player.y - diagSpeed, 84);
@@ -2067,8 +2074,8 @@ function update(deltaTime) {
         else { player.moving = false; player.frame = getIdleFrame(player.dir); return; }
       }
       player.dir = 'up';
-    } else {
-      // 下行：沿轨道向下，超过 y=380 后让正常移动接管
+    } else if (player.target.y > player.y) {
+      // 下行：只有明确点击下方才沿轨道向下
       player.y += diagSpeed;
       player.x = player.y >= 380 ? 60 : 60 + (380 - player.y) / 296 * 496;
       player.dir = 'down';
