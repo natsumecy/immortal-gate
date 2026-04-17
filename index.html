@@ -9,6 +9,12 @@
   font-family: 'ZhengGe';
   src: url('assets/fonts/ZhengGeDianHei-16.ttf') format('truetype');
 }
+@font-face {
+  font-family: 'Ark Pixel Latin';
+  src: url('assets/fonts/ark-pixel-latin.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
 </style>
 <style>
   body { margin: 0; overflow: hidden; background: #f5f0e8; }
@@ -274,9 +280,33 @@ function setLang(lang) { currentLang = lang; localStorage.setItem('immortal_lang
 
 // 图片 + 字体全部就绪后才启动
 let loadedCount = 0;
-let fontReady = false;
+let fontReady = 0;
 function tryStart() {
-  if (loadedCount === 12 && fontReady) loop();
+  if (loadedCount === 12 && fontReady >= 2) loop();
+}
+function gameFont(size) {
+  return currentLang === 'en'
+    ? `${size}px 'Ark Pixel Latin', sans-serif`
+    : `${size}px 'ZhengGe', 'DotGothic16', sans-serif`;
+}
+function wrapText(ctx, text, maxWidth) {
+  const lines = [];
+  let line = '';
+  if (text.includes(' ')) {
+    for (const word of text.split(' ')) {
+      const test = line ? line + ' ' + word : word;
+      if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = word; }
+      else line = test;
+    }
+  } else {
+    for (const ch of text) {
+      const test = line + ch;
+      if (ctx.measureText(test).width > maxWidth) { lines.push(line); line = ch; }
+      else line = test;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
 }
 function onImageLoad() {
   loadedCount++;
@@ -813,18 +843,11 @@ function drawBubble(anchorX, anchorY, bub) {
 
   const padding = 10;
   const fontSize = 16;
-  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+  ctx.font = gameFont(fontSize);
 
   // 自动换行
   const maxWidth = 180;
-  let lines = [];
-  let line = '';
-  for (const ch of bub.displayed) {
-    const test = line + ch;
-    if (ctx.measureText(test).width > maxWidth) { lines.push(line); line = ch; }
-    else line = test;
-  }
-  if (line) lines.push(line);
+  let lines = wrapText(ctx, bub.displayed, maxWidth);
 
   // 避免行首出现标点（将其并入上一行）
   const LEAD_PUNCT = '。，！？；：、…—》）」』〕';
@@ -867,7 +890,7 @@ function drawBubble(anchorX, anchorY, bub) {
 
   // 文字
   ctx.fillStyle = '#2a2218';
-  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+  ctx.font = gameFont(fontSize);
   lines.forEach((l, i) => {
     ctx.fillText(l, anchorX - ctx.measureText(l).width / 2, by + padding + fontSize + i * lineH - 5);
   });
@@ -1085,7 +1108,7 @@ function drawChoiceBubble(anchorX, anchorY) {
   const padding = 10;
   const fontSize = 16;
   const lineH = fontSize + 10;
-  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+  ctx.font = gameFont(fontSize);
 
   const indW = ctx.measureText('▶ ').width;
   const maxW  = Math.max(...opts.map(o => ctx.measureText(o).width));
@@ -1422,19 +1445,12 @@ function drawArcadeChoice() {
   const padding = 10;
   const fontSize = 16;
   const lineH = fontSize + 8;
-  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+  ctx.font = gameFont(fontSize);
 
   // 介绍文字（自动换行）
   const introText = arcadeBubble.text;
   const maxTextW = 180;
-  let introLines = [];
-  let line = '';
-  for (const ch of introText) {
-    const test = line + ch;
-    if (ctx.measureText(test).width > maxTextW) { introLines.push(line); line = ch; }
-    else line = test;
-  }
-  if (line) introLines.push(line);
+  let introLines = wrapText(ctx, introText, maxTextW);
 
   const opts = [t('arcadePlay'), t('arcadeSkip')];
   const indW = ctx.measureText('▶ ').width;
@@ -2339,7 +2355,7 @@ function drawEndSequence() {
 
   if (_endState === 'fin' || _endState === 'replay') {
     const finAlpha = Math.min(1, (Date.now() - _finShowTime) / 1000);
-    ctx.font = `24px 'ZhengGe', 'DotGothic16', sans-serif`;
+    ctx.font = gameFont(24);
     ctx.fillStyle = `rgba(42, 34, 24, ${finAlpha})`;
     const finText = '-fin-';
     const finW = ctx.measureText(finText).width;
@@ -2350,7 +2366,7 @@ function drawEndSequence() {
     const elapsed = Date.now() - _finShowTime - 5000;
     const replayAlpha = Math.max(0, Math.min(1, elapsed / 1000));
     if (replayAlpha > 0) {
-      ctx.font = `16px 'ZhengGe', 'DotGothic16', sans-serif`;
+      ctx.font = gameFont(16);
       ctx.fillStyle = `rgba(42, 34, 24, ${replayAlpha * 0.55})`;
       const txt = 'play again';
       const tw = ctx.measureText(txt).width;
@@ -2372,7 +2388,7 @@ function drawBookSelector() {
   const padding = 10;
   const fontSize = Math.round(16 * zoom);
   const lineH = fontSize + 8;
-  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+  ctx.font = gameFont(fontSize);
 
   const titles = getBooks().map(b => b.title);
   const indW = ctx.measureText('▶ ').width;
@@ -2436,18 +2452,11 @@ function drawBookReader() {
   const anchorY = screenY - 20 * zoom;
   const padding = 10 * zoom;
   const fontSize = Math.round(16 * zoom);
-  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+  ctx.font = gameFont(fontSize);
 
   // 单行长文本自动换行
   const maxWidth = 200 * zoom;
-  let lines = [];
-  let line = '';
-  for (const ch of text) {
-    const test = line + ch;
-    if (ctx.measureText(test).width > maxWidth) { lines.push(line); line = ch; }
-    else line = test;
-  }
-  if (line) lines.push(line);
+  let lines = wrapText(ctx, text, maxWidth);
 
   // 避免行首出现标点
   const LEAD_PUNCT = '。，！？；：、…—》）」』〕';
@@ -2490,7 +2499,7 @@ function drawBookReader() {
 
   // 文字
   ctx.fillStyle = '#2a2218';
-  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+  ctx.font = gameFont(fontSize);
   lines.forEach((l, i) => {
     ctx.fillText(l, anchorX - ctx.measureText(l).width / 2, by + padding + fontSize + i * lineH - 5);
   });
@@ -2524,7 +2533,7 @@ function drawShelfAskBubble() {
   const padding = 10;
   const fontSize = Math.round(16 * zoom);
   const lineH = fontSize + 8;
-  ctx.font = `${fontSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+  ctx.font = gameFont(fontSize);
 
   // 显示四本书 + 关闭选项（带《》书名号）
   const opts = getBooks().map(b => `《${b.title}》`).concat([t('shelfClose')]);
@@ -2618,7 +2627,7 @@ function drawTitleOverlay() {
   if (titleState === 'title') {
     const btnZoom = getZoom();
     const btnFSize = Math.round(14 * btnZoom);
-    ctx.font = `${btnFSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+    ctx.font = gameFont(btnFSize);
     
     const zhText = '中文';
     const enText = 'English';
@@ -2654,7 +2663,7 @@ function drawTitleOverlay() {
   const blink = 0.35 + 0.35 * Math.sin(Date.now() * 0.0025);
   const zoom = getZoom();
   const fSize = Math.round(16 * zoom);
-  ctx.font = `${fSize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+  ctx.font = gameFont(fSize);
   ctx.fillStyle = `rgba(42, 34, 24, ${blink})`;
   const hint = t('hint');
   const hw = ctx.measureText(hint).width;
@@ -2664,7 +2673,7 @@ function drawTitleOverlay() {
 
   // 版权信息（稍低位置）
   const copySize = Math.round(10 * zoom);
-  ctx.font = `${copySize}px 'ZhengGe', 'DotGothic16', sans-serif`;
+  ctx.font = gameFont(copySize);
   ctx.fillStyle = 'rgba(42, 34, 24, 0.6)';
   const copyText = t('copy');
   const cw = ctx.measureText(copyText).width;
@@ -2766,9 +2775,16 @@ function loop(timestamp) {
 const _zhengGeFont = new FontFace('ZhengGe', "url('assets/fonts/ZhengGeDianHei-16.ttf')");
 _zhengGeFont.load().then(face => {
   document.fonts.add(face);
-  fontReady = true;
+  fontReady++;
   tryStart();
-}).catch(() => { fontReady = true; tryStart(); });
+}).catch(() => { fontReady++; tryStart(); });
+
+const _arkPixelLatinFont = new FontFace('Ark Pixel Latin', "url('assets/fonts/ark-pixel-latin.woff2')");
+_arkPixelLatinFont.load().then(face => {
+  document.fonts.add(face);
+  fontReady++;
+  tryStart();
+}).catch(() => { fontReady++; tryStart(); });
 // 所有图片的 onload 已在设置 src 前配置
 </script>
 
