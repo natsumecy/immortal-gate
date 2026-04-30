@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>demo</title>
@@ -272,7 +272,7 @@ const I18N = {
   }
 };
 
-let currentLang = localStorage.getItem('immortal_lang') || 'zh';
+let currentLang = localStorage.getItem('immortal_lang') || 'en';
 let selectedLang = currentLang;  // 标题画面选择的语言
 
 function t(key) { return I18N[currentLang][key]; }
@@ -715,7 +715,11 @@ document.addEventListener('keydown', (e) => {
   // 彩蛋检测（任何阶段都可用，包括标题画面）
   checkKonami(e);
 
-  // 标题画面：空格/回车启动
+  // 标题画面：左右键切换语言，空格/回车启动
+  if (titleState === 'title' && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
+    selectedLang = selectedLang === 'zh' ? 'en' : 'zh';
+    setLang(selectedLang); e.preventDefault(); return;
+  }
   if (titleState === 'title' && (e.code === 'Space' || e.code === 'Enter')) {
     startTitlePan(); e.preventDefault(); return;
   }
