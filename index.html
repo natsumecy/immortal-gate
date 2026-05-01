@@ -826,7 +826,7 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault();
       return;
     }
-    if (e.code === 'Enter') { talkToIwata(); talkToArcade(); talkToShelf(); }
+    if (e.code === 'Enter' || e.code === 'Space') { talkToIwata(); talkToArcade(); talkToShelf(); }
   }
   // 方向键/WASD 时取消点击目标
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD'].includes(e.code)) {
